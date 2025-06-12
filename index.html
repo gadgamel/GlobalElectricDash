@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Proyectos Mineros en Argentina</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: rgb(131, 51, 51);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            width: 300px;
+            max-height: 90vh;
+            overflow-y: auto;
+            color: white;
+        }
+        .project-card {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: white;
+            color: black;
+        }
+        .project-card:hover {
+            background-color: #f5f5f5;
+        }
+        .filter-section {
+            margin-bottom: 15px;
+        }
+        .highlight {
+            background-color: yellow;
+            border: 2px solid orange;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .file-input {
+            margin-bottom: 15px;
+        }
+        select {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 5px 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .project-details {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="info-panel">
+        <h2>Proyectos Mineros</h2>
+        <div class="file-input">
+            <input type="file" id="excel-file" accept=".xlsx,.xls">
+        </div>
+        <div class="loading" id="loading-message" style="display: none;">Cargando datos...</div>
+        <div class="filter-section" id="filters" style="display: none;">
+            <h3>Filtros</h3>
+            <select id="sector-filter">
+                <option value="">Todos los sectores</option>
+            </select>
+            <select id="etapa-filter">
+                <option value="">Todas las etapas</option>
+            </select>
+            <select id="estado-filter">
+                <option value="">Todos los estados</option>
+            </select>
+        </div>
+        <div id="projects-list"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        let projects = [];
+        const markers = {};
+        let map;
+
+        function initMap() {
+            map = L.map('map').setView([-38.4161, -63.6167], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        const etapaColors = {
+            "Exploración": "blue",
+            "Desarrollo": "orange",
+            "Producción": "green",
+            "Construcción": "purple",
+            "Factibilidad": "cyan",
+            "Prefactibilidad": "pink"
+        };
+
+        document.getElementById('excel-file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('loading-message').style.display = 'block';
+            document.getElementById('filters').style.display = 'none';
+            document.getElementById('projects-list').innerHTML = '';
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                projects = jsonData.map(row => ({
+                    name: row['Nombre del proyecto'] || 'Sin nombre',
+                    sector: row['Sector'] || 'Desconocido',
+                    area: row['Área'] || 'Desconocido',
+                    pais: row['País'] || 'Desconocido',
+                    etapa: row['Etapa'] || 'Desconocido',
+                    companias: row['Compañías relacionadas'] || 'Desconocido',
+                    capex: row['Capex (US$ mn)'] || 'N/A',
+                    tipo: row['Tipo de proyecto'] || 'Desconocido',
+                    productos: row['Productos y Servicios'] || 'Desconocido',
+                    estado: row['Estado'] || 'Desconocido',
+                    coordinates: [
+                        parseFloat(row['Latitud']) || 0,
+                        parseFloat(row['Longitud']) || 0
+                    ]
+                })).filter(p => p.coordinates[0] !== 0 && p.coordinates[1] !== 0);
+
+                processProjects();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function processProjects() {
+            for (const marker of Object.values(markers)) {
+                map.removeLayer(marker);
+            }
+
+            const sectores = [...new Set(projects.map(p => p.sector))];
+            const etapas = [...new Set(projects.map(p => p.etapa))];
+            const estados = [...new Set(projects.map(p => p.estado))];
+
+            document.getElementById('sector-filter').innerHTML =
+                '<option value="">Todos los sectores</option>' +
+                sectores.map(s => `<option value="${s}">${s}</option>`).join('');
+
+            document.getElementById('etapa-filter').innerHTML =
+                '<option value="">Todas las etapas</option>' +
+                etapas.map(e => `<option value="${e}">${e}</option>`).join('');
+
+            document.getElementById('estado-filter').innerHTML =
+                '<option value="">Todos los estados</option>' +
+                estados.map(e => `<option value="${e}">${e}</option>`).join('');
+
+            projects.forEach(project => {
+                const marker = L.circleMarker(project.coordinates, {
+                    radius: 8,
+                    fillColor: etapaColors[project.etapa] || 'gray',
+                    color: "#000",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+
+                marker.bindPopup(`
+                    <b>${project.name}</b><br>
+                    <b>Sector:</b> ${project.sector}<br>
+                    <b>Etapa:</b> ${project.etapa}<br>
+                    <b>Estado:</b> ${project.estado}<br>
+                    <b>Inversión:</b> ${project.capex}<br>
+                    <b>Compañías:</b> ${project.companias}
+                `);
+
+                marker.on('click', function() {
+                    highlightProject(project.name);
+                });
+
+                markers[project.name] = marker;
+            });
+
+            document.getElementById('filters').style.display = 'block';
+            document.getElementById('loading-message').style.display = 'none';
+
+            renderProjectsList();
+        }
+
+        function renderProjectsList(filteredProjects = projects) {
+            const projectsList = document.getElementById('projects-list');
+            projectsList.innerHTML = '';
+
+            filteredProjects.forEach(project => {
+                const cardId = `project-${project.name.replace(/\s+/g, '-')}`;
+                const projectCard = document.createElement('div');
+                projectCard.className = 'project-card';
+                projectCard.id = cardId;
+                projectCard.innerHTML = `
+                    <h3>${project.name}</h3>
+                    <div class="project-details">
+                        <p><strong>Sector:</strong> ${project.sector}</p>
+                        <p><strong>Etapa:</strong> ${project.etapa}</p>
+                        <p><strong>Estado:</strong> ${project.estado}</p>
+                        <p><strong>Inversión:</strong> ${project.capex} US$ mn</p>
+                    </div>
+                    <button onclick="zoomToProject('${project.name}')">Ver en mapa</button>
+                `;
+                projectCard.addEventListener('click', () => {
+                    highlightProject(project.name);
+                });
+                projectsList.appendChild(projectCard);
+            });
+        }
+
+        function highlightProject(projectName) {
+            document.querySelectorAll('.project-card').forEach(card => {
+                card.classList.remove('highlight');
+            });
+
+            const cardId = `project-${projectName.replace(/\s+/g, '-')}`;
+            const projectCard = document.getElementById(cardId);
+            if (projectCard) {
+                projectCard.classList.add('highlight');
+                projectCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            if (markers[projectName]) {
+                markers[projectName].setStyle({ fillColor: 'yellow', radius: 12 });
+                setTimeout(() => {
+                    const project = projects.find(p => p.name === projectName);
+                    if (project) {
+                        markers[projectName].setStyle({
+                            fillColor: etapaColors[project.etapa] || 'gray',
+                            radius: 8
+                        });
+                    }
+                }, 2000);
+            }
+        }
+
+        // FUNCION CORREGIDA: Zoom al proyecto
+        function zoomToProject(projectName) {
+            const project = projects.find(p => p.name === projectName);
+            if (project && project.coordinates) {
+                map.setView(project.coordinates, 10);
+                if (markers[project.name]) {
+                    markers[project.name].openPopup();
+                }
+            }
+        }
+
+        // Inicializar mapa al cargar la página
+        window.onload = initMap;
+    </script>
+</body>
+</html>

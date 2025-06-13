@@ -6,66 +6,143 @@
     <title>Mapa de Proyectos Mineros en Argentina</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        #map { height: 100vh; width: 100%; }
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: Arial, sans-serif; 
+        }
+        #map { 
+            height: 100vh; 
+            width: 100%; 
+        }
         .info-panel {
             position: absolute;
             top: 10px;
             right: 10px;
             z-index: 1000;
-            background: rgb(131, 51, 51);
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
-            width: 300px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            width: 350px;
             max-height: 90vh;
             overflow-y: auto;
-            color: white;
         }
         .project-card {
             margin-bottom: 15px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
-            background-color: white;
-            color: black;
+            background: #f9f9f9;
         }
         .project-card:hover {
-            background-color: #f5f5f5;
+            background: #f0f0f0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
         .filter-section {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 6px;
         }
         .highlight {
-            background-color: yellow;
-            border: 2px solid orange;
+            background-color: #fffacd !important;
+            border: 2px solid #ffd700 !important;
+            box-shadow: 0 0 10px rgba(255,215,0,0.5) !important;
         }
         .loading {
             text-align: center;
             padding: 20px;
+            font-size: 16px;
+            color: #555;
         }
         .file-input {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #e9f7ef;
+            border-radius: 6px;
         }
-        select {
+        select, button {
             width: 100%;
-            padding: 5px;
+            padding: 8px 12px;
             margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
         }
         button {
-            padding: 5px 10px;
-            background: #4CAF50;
+            background: #2e86de;
             color: white;
             border: none;
-            border-radius: 4px;
             cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #1e6fbf;
         }
         .project-details {
             margin-top: 10px;
             font-size: 0.9em;
             color: #555;
+        }
+        .detail-view {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 6px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .detail-view h3 {
+            margin-top: 0;
+            color: #2e86de;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .detail-table th, .detail-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .detail-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+        .detail-table tr:hover td {
+            background: #f9f9f9;
+        }
+        .close-detail {
+            float: right;
+            background: #e74c3c;
+            padding: 5px 10px;
+            font-size: 12px;
+            margin-top: -5px;
+        }
+        .close-detail:hover {
+            background: #c0392b;
+        }
+        .tab-container {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .tab {
+            padding: 8px 15px;
+            background: #eee;
+            cursor: pointer;
+            margin-right: 5px;
+            border-radius: 4px 4px 0 0;
+        }
+        .tab.active {
+            background: #2e86de;
+            color: white;
         }
     </style>
 </head>
@@ -76,7 +153,9 @@
         <div class="file-input">
             <input type="file" id="excel-file" accept=".xlsx,.xls">
         </div>
-        <div class="loading" id="loading-message" style="display: none;">Cargando datos...</div>
+        <div class="loading" id="loading-message" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i> Cargando datos...
+        </div>
         <div class="filter-section" id="filters" style="display: none;">
             <h3>Filtros</h3>
             <select id="sector-filter">
@@ -89,90 +168,119 @@
                 <option value="">Todos los estados</option>
             </select>
         </div>
+        
+        <div class="tab-container">
+            <div class="tab active" id="list-tab">Lista</div>
+            <div class="tab" id="detail-tab">Detalle</div>
+        </div>
+        
         <div id="projects-list"></div>
+        
+        <div class="detail-view" id="project-detail">
+            <h3 id="detail-title">Detalle del Proyecto 
+                <button class="close-detail" onclick="hideDetail()">Cerrar</button>
+            </h3>
+            <table class="detail-table" id="detail-table">
+                <!-- Los datos se llenarán dinámicamente -->
+            </table>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js"></script>
     <script>
+        // Variables globales
         let projects = [];
         const markers = {};
         let map;
-
+        let currentProject = null;
+        
+        // Inicializar el mapa
         function initMap() {
             map = L.map('map').setView([-38.4161, -63.6167], 5);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
         }
-
+        
+        // Colores por etapa del proyecto
         const etapaColors = {
-            "Exploración": "blue",
-            "Desarrollo": "orange",
-            "Producción": "green",
-            "Construcción": "purple",
-            "Factibilidad": "cyan",
-            "Prefactibilidad": "pink"
+            "Exploración": "#3498db",
+            "Desarrollo": "#e67e22",
+            "Producción": "#2ecc71",
+            "Construcción": "#9b59b6",
+            "Factibilidad": "#1abc9c",
+            "Prefactibilidad": "#f1c40f",
+            "Evaluación": "#34495e"
         };
-
+        
+        // Manejar la carga del archivo Excel
         document.getElementById('excel-file').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
-
+            
             document.getElementById('loading-message').style.display = 'block';
             document.getElementById('filters').style.display = 'none';
             document.getElementById('projects-list').innerHTML = '';
-
+            
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-
-                projects = jsonData.map(row => ({
-                    name: row['Nombre del proyecto'] || 'Sin nombre',
-                    sector: row['Sector'] || 'Desconocido',
-                    area: row['Área'] || 'Desconocido',
-                    pais: row['País'] || 'Desconocido',
-                    etapa: row['Etapa'] || 'Desconocido',
-                    companias: row['Compañías relacionadas'] || 'Desconocido',
-                    capex: row['Capex (US$ mn)'] || 'N/A',
-                    tipo: row['Tipo de proyecto'] || 'Desconocido',
-                    productos: row['Productos y Servicios'] || 'Desconocido',
-                    estado: row['Estado'] || 'Desconocido',
-                    coordinates: [
-                        parseFloat(row['Latitud']) || 0,
-                        parseFloat(row['Longitud']) || 0
-                    ]
-                })).filter(p => p.coordinates[0] !== 0 && p.coordinates[1] !== 0);
-
+                
+                // Procesar los datos según la estructura conocida
+                projects = jsonData.map(row => {
+                    return {
+                        name: row['Nombre del proyecto'] || 'Sin nombre',
+                        sector: row['Sector'] || 'Desconocido',
+                        area: row['Área'] || 'Desconocido',
+                        pais: row['País'] || 'Desconocido',
+                        etapa: row['Etapa'] || 'Desconocido',
+                        companias: row['Compañías relacionadas'] || 'Desconocido',
+                        capex: row['Capex (US$ mn)'] || 'N/A',
+                        tipo: row['Tipo de proyecto'] || 'Desconocido',
+                        productos: row['Productos y Servicios'] || 'Desconocido',
+                        estado: row['Estado'] || 'Desconocido',
+                        coordinates: [
+                            parseFloat(row['Latitud']) || 0,
+                            parseFloat(row['Longitud']) || 0
+                        ]
+                    };
+                }).filter(proj => proj.coordinates[0] !== 0 && proj.coordinates[1] !== 0);
+                
                 processProjects();
             };
             reader.readAsArrayBuffer(file);
         });
-
+        
+        // Procesar proyectos y mostrar en mapa
         function processProjects() {
+            // Limpiar marcadores existentes
             for (const marker of Object.values(markers)) {
                 map.removeLayer(marker);
             }
-
+            
+            // Llenar filtros con valores únicos
             const sectores = [...new Set(projects.map(p => p.sector))];
             const etapas = [...new Set(projects.map(p => p.etapa))];
             const estados = [...new Set(projects.map(p => p.estado))];
-
-            document.getElementById('sector-filter').innerHTML =
-                '<option value="">Todos los sectores</option>' +
+            
+            const sectorFilter = document.getElementById('sector-filter');
+            sectorFilter.innerHTML = '<option value="">Todos los sectores</option>' + 
                 sectores.map(s => `<option value="${s}">${s}</option>`).join('');
-
-            document.getElementById('etapa-filter').innerHTML =
-                '<option value="">Todas las etapas</option>' +
+            
+            const etapaFilter = document.getElementById('etapa-filter');
+            etapaFilter.innerHTML = '<option value="">Todas las etapas</option>' + 
                 etapas.map(e => `<option value="${e}">${e}</option>`).join('');
-
-            document.getElementById('estado-filter').innerHTML =
-                '<option value="">Todos los estados</option>' +
+            
+            const estadoFilter = document.getElementById('estado-filter');
+            estadoFilter.innerHTML = '<option value="">Todos los estados</option>' + 
                 estados.map(e => `<option value="${e}">${e}</option>`).join('');
-
+            
+            // Crear marcadores
             projects.forEach(project => {
                 const marker = L.circleMarker(project.coordinates, {
                     radius: 8,
@@ -182,94 +290,240 @@
                     opacity: 1,
                     fillOpacity: 0.8
                 }).addTo(map);
-
+                
                 marker.bindPopup(`
                     <b>${project.name}</b><br>
                     <b>Sector:</b> ${project.sector}<br>
                     <b>Etapa:</b> ${project.etapa}<br>
                     <b>Estado:</b> ${project.estado}<br>
                     <b>Inversión:</b> ${project.capex}<br>
-                    <b>Compañías:</b> ${project.companias}
+                    <button onclick="showProjectDetail('${project.name}')" 
+                        style="margin-top:5px;padding:3px 8px;background:#2e86de;color:white;border:none;border-radius:3px;cursor:pointer;">
+                        Ver detalles
+                    </button>
                 `);
-
+                
                 marker.on('click', function() {
                     highlightProject(project.name);
                 });
-
+                
                 markers[project.name] = marker;
             });
-
+            
+            // Mostrar filtros y ocultar mensaje de carga
             document.getElementById('filters').style.display = 'block';
             document.getElementById('loading-message').style.display = 'none';
-
+            
+            // Renderizar lista inicial
             renderProjectsList();
+            
+            // Configurar tabs
+            document.getElementById('list-tab').addEventListener('click', function() {
+                document.getElementById('list-tab').classList.add('active');
+                document.getElementById('detail-tab').classList.remove('active');
+                document.getElementById('projects-list').style.display = 'block';
+                document.getElementById('project-detail').style.display = 'none';
+            });
+            
+            document.getElementById('detail-tab').addEventListener('click', function() {
+                if (!currentProject) {
+                    alert('Selecciona un proyecto primero');
+                    return;
+                }
+                document.getElementById('detail-tab').classList.add('active');
+                document.getElementById('list-tab').classList.remove('active');
+                document.getElementById('projects-list').style.display = 'none';
+                document.getElementById('project-detail').style.display = 'block';
+            });
         }
-
+        
+        // Función para renderizar lista de proyectos
         function renderProjectsList(filteredProjects = projects) {
             const projectsList = document.getElementById('projects-list');
             projectsList.innerHTML = '';
-
+            
+            if (filteredProjects.length === 0) {
+                projectsList.innerHTML = '<p>No se encontraron proyectos con los filtros seleccionados</p>';
+                return;
+            }
+            
             filteredProjects.forEach(project => {
-                const cardId = `project-${project.name.replace(/\s+/g, '-')}`;
                 const projectCard = document.createElement('div');
                 projectCard.className = 'project-card';
-                projectCard.id = cardId;
+                projectCard.id = `project-${project.name.replace(/\s+/g, '-')}`;
                 projectCard.innerHTML = `
                     <h3>${project.name}</h3>
                     <div class="project-details">
                         <p><strong>Sector:</strong> ${project.sector}</p>
-                        <p><strong>Etapa:</strong> ${project.etapa}</p>
+                        <p><strong>Etapa:</strong> <span style="color:${etapaColors[project.etapa] || '#000'}">${project.etapa}</span></p>
                         <p><strong>Estado:</strong> ${project.estado}</p>
                         <p><strong>Inversión:</strong> ${project.capex} US$ mn</p>
                     </div>
-                    <button onclick="zoomToProject('${project.name}')">Ver en mapa</button>
+                    <button onclick="showProjectDetail('${project.name}')">Ver detalles completos</button>
                 `;
-                projectCard.addEventListener('click', () => {
-                    highlightProject(project.name);
+                projectCard.addEventListener('click', (e) => {
+                    // Evitar que se active cuando se hace clic en el botón
+                    if (!e.target.closest('button')) {
+                        highlightProject(project.name);
+                    }
                 });
                 projectsList.appendChild(projectCard);
             });
         }
-
+        
+        // Función para mostrar el detalle completo de un proyecto
+        window.showProjectDetail = function(projectName) {
+            const project = projects.find(p => p.name === projectName);
+            if (!project) return;
+            
+            currentProject = project;
+            
+            // Actualizar el título
+            document.getElementById('detail-title').innerHTML = `Detalle: ${project.name} <button class="close-detail" onclick="hideDetail()">Cerrar</button>`;
+            
+            // Crear la tabla de detalles
+            const detailTable = document.getElementById('detail-table');
+            detailTable.innerHTML = `
+                <tr>
+                    <th>Campo</th>
+                    <th>Valor</th>
+                </tr>
+                <tr>
+                    <td>Nombre del Proyecto</td>
+                    <td>${project.name}</td>
+                </tr>
+                <tr>
+                    <td>Sector</td>
+                    <td>${project.sector}</td>
+                </tr>
+                <tr>
+                    <td>Área</td>
+                    <td>${project.area}</td>
+                </tr>
+                <tr>
+                    <td>País</td>
+                    <td>${project.pais}</td>
+                </tr>
+                <tr>
+                    <td>Etapa</td>
+                    <td><span style="color:${etapaColors[project.etapa] || '#000'}">${project.etapa}</span></td>
+                </tr>
+                <tr>
+                    <td>Compañías Relacionadas</td>
+                    <td>${project.companias}</td>
+                </tr>
+                <tr>
+                    <td>Inversión (Capex)</td>
+                    <td>${project.capex} US$ mn</td>
+                </tr>
+                <tr>
+                    <td>Tipo de Proyecto</td>
+                    <td>${project.tipo}</td>
+                </tr>
+                <tr>
+                    <td>Productos/Servicios</td>
+                    <td>${project.productos}</td>
+                </tr>
+                <tr>
+                    <td>Estado</td>
+                    <td>${project.estado}</td>
+                </tr>
+                <tr>
+                    <td>Ubicación</td>
+                    <td>Lat: ${project.coordinates[0]}, Lng: ${project.coordinates[1]}</td>
+                </tr>
+            `;
+            
+            // Mostrar la vista de detalle
+            document.getElementById('detail-tab').classList.add('active');
+            document.getElementById('list-tab').classList.remove('active');
+            document.getElementById('projects-list').style.display = 'none';
+            document.getElementById('project-detail').style.display = 'block';
+            
+            // Resaltar en el mapa
+            highlightProject(projectName);
+            zoomToProject(projectName);
+        };
+        
+        // Función para ocultar el detalle
+        window.hideDetail = function() {
+            document.getElementById('list-tab').classList.add('active');
+            document.getElementById('detail-tab').classList.remove('active');
+            document.getElementById('projects-list').style.display = 'block';
+            document.getElementById('project-detail').style.display = 'none';
+        };
+        
+        // Función para resaltar proyecto
         function highlightProject(projectName) {
+            // Quitar resaltado anterior
             document.querySelectorAll('.project-card').forEach(card => {
                 card.classList.remove('highlight');
             });
-
-            const cardId = `project-${projectName.replace(/\s+/g, '-')}`;
-            const projectCard = document.getElementById(cardId);
+            
+            // Resaltar nuevo
+            const projectCard = document.getElementById(`project-${projectName.replace(/\s+/g, '-')}`);
             if (projectCard) {
                 projectCard.classList.add('highlight');
                 projectCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
-
+            
+            // Animación en el mapa
             if (markers[projectName]) {
-                markers[projectName].setStyle({ fillColor: 'yellow', radius: 12 });
+                markers[projectName].setStyle({ fillColor: '#f1c40f', radius: 12 });
                 setTimeout(() => {
                     const project = projects.find(p => p.name === projectName);
                     if (project) {
-                        markers[projectName].setStyle({
+                        markers[projectName].setStyle({ 
                             fillColor: etapaColors[project.etapa] || 'gray',
-                            radius: 8
+                            radius: 8 
                         });
                     }
                 }, 2000);
             }
         }
-
-        // FUNCION CORREGIDA: Zoom al proyecto
-        function zoomToProject(projectName) {
+        
+        // Función para hacer zoom al proyecto
+        window.zoomToProject = function(projectName) {
             const project = projects.find(p => p.name === projectName);
-            if (project && project.coordinates) {
-                map.setView(project.coordinates, 10);
-                if (markers[project.name]) {
-                    markers[project.name].openPopup();
-                }
+            if (project) {
+                map.flyTo(project.coordinates, 8);
+                highlightProject(projectName);
             }
+        };
+        
+        // Aplicar filtros
+        document.getElementById('sector-filter').addEventListener('change', applyFilters);
+        document.getElementById('etapa-filter').addEventListener('change', applyFilters);
+        document.getElementById('estado-filter').addEventListener('change', applyFilters);
+        
+        function applyFilters() {
+            const sector = document.getElementById('sector-filter').value;
+            const etapa = document.getElementById('etapa-filter').value;
+            const estado = document.getElementById('estado-filter').value;
+            
+            const filtered = projects.filter(project => {
+                return (!sector || project.sector === sector) &&
+                       (!etapa || project.etapa === etapa) &&
+                       (!estado || project.estado === estado);
+            });
+            
+            renderProjectsList(filtered);
+            
+            // Mostrar/ocultar marcadores
+            Object.keys(markers).forEach(projectName => {
+                const shouldShow = filtered.some(p => p.name === projectName);
+                if (markers[projectName]) {
+                    if (shouldShow) {
+                        map.addLayer(markers[projectName]);
+                    } else {
+                        map.removeLayer(markers[projectName]);
+                    }
+                }
+            });
         }
-
-        // Inicializar mapa al cargar la página
-        window.onload = initMap;
+        
+        // Inicializar el mapa al cargar la página
+        initMap();
     </script>
 </body>
 </html>

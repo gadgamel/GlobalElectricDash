@@ -3,211 +3,1055 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa de Proyectos Mineros en Argentina</title>
+    <title>Dashboard Ejecutivo - Proyectos Mineros</title>
+    <!-- Importamos las librerias necesarias -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <style>
-        body { 
-            margin: 0; 
-            padding: 0; 
-            font-family: Arial, sans-serif; 
+        /* Estilos generales pa la app */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Montserrat', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        #map { 
-            height: 100vh; 
-            width: 100%; 
+        body {
+            background: linear-gradient(135deg, #0c1a3a, #162b50);
+            color: #333;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
-        .info-panel {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: white;
+        .container {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            grid-template-rows: 100px 1fr;
+            height: 100vh;
+            gap: 15px;
             padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
-            width: 350px;
-            max-height: 90vh;
+        }
+        
+        /* Encabesado con los KPI principales */
+        header {
+            grid-column: 1 / -1;
+            background: linear-gradient(90deg, #0055A6, #003366);
+            color: white;
+            border-radius: 12px;
+            padding: 15px 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        .logo i {
+            font-size: 2.5rem;
+            color: #E60028;
+        }
+        .kpi-container {
+            display: flex;
+            gap: 20px;
+        }
+        .kpi-box {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            text-align: center;
+            min-width: 150px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .kpi-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #E60028;
+        }
+        .kpi-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        /* Panel izquierdo con filtros y gráficos */
+        .panel-left {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
             overflow-y: auto;
         }
-        .project-card {
+        .filters-section {
+            background: #f0f5ff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            flex-shrink: 0;
+        }
+        .filters-section h2 {
             margin-bottom: 15px;
-            padding: 12px;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
+            color: #0055A6;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 2px solid #0055A6;
+            padding-bottom: 10px;
+        }
+        .filter-group {
+            margin-bottom: 15px;
+        }
+        .filter-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #003366;
+        }
+        .filter-group select, .filter-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d0d8e8;
+            border-radius: 8px;
+            background: white;
+            font-size: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .capex-filter {
+            display: flex;
+            gap: 10px;
+        }
+        .capex-filter input {
+            flex: 1;
+        }
+        .file-upload {
+            background: #e8f4ff;
+            border: 2px dashed #0055A6;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
             cursor: pointer;
-            transition: all 0.2s;
-            background: #f9f9f9;
+            transition: all 0.3s;
+        }
+        .file-upload:hover {
+            background: #d1e7ff;
+            transform: translateY(-3px);
+        }
+        .file-upload i {
+            font-size: 3rem;
+            color: #0055A6;
+            margin-bottom: 10px;
+        }
+        .file-upload p {
+            margin: 10px 0;
+            color: #003366;
+            font-weight: 500;
+        }
+        .charts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+        .chart-box {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e0e7ff;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 300px;
+        }
+        .chart-box h3 {
+            margin-bottom: 20px;
+            color: #0055A6;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid #e0e7ff;
+            padding-bottom: 10px;
+        }
+        .chart-container {
+            flex: 1;
+            position: relative;
+            min-height: 200px;
+        }
+        
+        /* Panel derecho con el mapa y lista de proyectos */
+        .panel-right {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: 100%;
+        }
+        .map-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            height: 400px;
+            max-height: 60vh;
+        }
+        .map-header {
+            padding: 15px 20px;
+            background: #0055A6;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #map {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            border-radius: 0 0 12px 12px;
+        }
+        .tabs-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex: 1;
+            min-height: 300px;
+        }
+        .tabs-header {
+            display: flex;
+            background: #0055A6;
+            color: white;
+        }
+        .tab {
+            padding: 15px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .tab.active {
+            background: white;
+            color: #0055A6;
+            border-bottom: 3px solid #E60028;
+        }
+        .tab-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f9faff;
+            display: flex;
+            flex-direction: column;
+        }
+        #projects-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            flex: 1;
+            overflow-y: auto;
+            padding: 5px;
+        }
+        .project-card {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+            height: 180px;
+            display: flex;
+            flex-direction: column;
         }
         .project-card:hover {
-            background: #f0f0f0;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            border-color: #0055A6;
         }
-        .filter-section {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f5f5f5;
-            border-radius: 6px;
+        .project-card.highlight {
+            border-color: #E60028;
+            box-shadow: 0 0 15px rgba(230, 0, 40, 0.4);
         }
-        .highlight {
-            background-color: #fffacd !important;
-            border: 2px solid #ffd700 !important;
-            box-shadow: 0 0 10px rgba(255,215,0,0.5) !important;
-        }
-        .loading {
-            text-align: center;
-            padding: 20px;
-            font-size: 16px;
-            color: #555;
-        }
-        .file-input {
-            margin-bottom: 20px;
-            padding: 10px;
-            background: #e9f7ef;
-            border-radius: 6px;
-        }
-        select, button {
-            width: 100%;
-            padding: 8px 12px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        button {
-            background: #2e86de;
+        .project-header {
+            background: linear-gradient(135deg, #0055A6, #003366);
             color: white;
-            border: none;
-            cursor: pointer;
-            transition: background 0.3s;
+            padding: 15px;
+            flex: 1;
         }
-        button:hover {
-            background: #1e6fbf;
+        .project-header h3 {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
-        .project-details {
-            margin-top: 10px;
-            font-size: 0.9em;
-            color: #555;
+        .project-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.2);
         }
+        .project-body {
+            padding: 10px 15px;
+            background: #f8f9fa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+        .project-info {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .project-info div {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .project-info i {
+            color: #0055A6;
+            width: 16px;
+            text-align: center;
+        }
+        .project-capex {
+            font-weight: 700;
+            color: #0055A6;
+            font-size: 1rem;
+            text-align: right;
+            min-width: 90px;
+        }
+        
+        /* Vista de detalle del proyecto */
         .detail-view {
             display: none;
-            margin-top: 20px;
-            padding: 15px;
-            background: #fff;
-            border-radius: 6px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            flex: 1;
+            overflow-y: auto;
         }
-        .detail-view h3 {
-            margin-top: 0;
-            color: #2e86de;
+        .detail-view.active {
+            display: block;
+        }
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
             border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
+        }
+        .detail-title {
+            font-size: 1.5rem;
+            color: #0055A6;
+            font-weight: 700;
+        }
+        .close-detail {
+            background: #0055A6;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        .close-detail:hover {
+            background: #003366;
+        }
+        .detail-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .summary-card {
+            background: #f0f5ff;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        .summary-card h4 {
+            color: #0055A6;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+        .summary-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #0055A6;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .detail-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        .detail-card h4 {
+            color: #0055A6;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid #e0e7ff;
+            padding-bottom: 8px;
+        }
+        .detail-content {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #444;
+        }
+        .companies-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .company-tag {
+            background: #0055A6;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         .detail-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
-        }
-        .detail-table th, .detail-table td {
-            padding: 8px 12px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
+            margin-top: 15px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
         }
         .detail-table th {
-            background: #f5f5f5;
+            background: #0055A6;
+            color: white;
+            text-align: left;
+            padding: 12px 15px;
             font-weight: 600;
         }
-        .detail-table tr:hover td {
-            background: #f9f9f9;
+        .detail-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
         }
-        .close-detail {
-            float: right;
+        .detail-table tr:last-child td {
+            border-bottom: none;
+        }
+        .detail-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        /* Notificaciones y loading */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #2ecc71;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(150%);
+            transition: transform 0.5s ease;
+        }
+        .notification.show {
+            transform: translateX(0);
+        }
+        .notification.error {
             background: #e74c3c;
-            padding: 5px 10px;
-            font-size: 12px;
-            margin-top: -5px;
         }
-        .close-detail:hover {
-            background: #c0392b;
-        }
-        .tab-container {
+        
+        /* Tabs para los gráficos */
+        .chart-tabs {
             display: flex;
             margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
         }
-        .tab {
+        .chart-tab {
             padding: 8px 15px;
-            background: #eee;
             cursor: pointer;
+            background: #e0e7ff;
             margin-right: 5px;
-            border-radius: 4px 4px 0 0;
+            border-radius: 5px 5px 0 0;
+            font-weight: 500;
+            transition: all 0.3s;
         }
-        .tab.active {
-            background: #2e86de;
+        .chart-tab.active {
+            background: #0055A6;
             color: white;
+        }
+        .chart-container {
+            height: 100%;
+            position: relative;
+            display: none;
+        }
+        .chart-container.active {
+            display: block;
+        }
+        
+        /* Tablas de ranking */
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .ranking-table th {
+            background: #0055A6;
+            color: white;
+            padding: 10px 15px;
+            text-align: left;
+        }
+        .ranking-table td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .ranking-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        .ranking-table tr:hover {
+            background: #eef2ff;
+        }
+        
+        /* Buscadores */
+        .search-container {
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .search-container i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #0055A6;
+        }
+        .search-container input {
+            width: 100%;
+            padding: 12px 15px 12px 45px;
+            border: 1px solid #d0d8e8;
+            border-radius: 8px;
+            font-size: 1rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Layout para los gráficos */
+        .chart-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .chart-row .chart-box {
+            flex: 1;
+            min-height: 300px;
+        }
+        
+        /* Controles del mapa */
+        .map-controls {
+            position: absolute;
+            top: 60px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .map-controls button {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 5px;
+            background: #0055A6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .map-controls button.active {
+            background: #003366;
+        }
+        
+        /* Timeline de proyectos */
+        .timeline-bar {
+            height: 30px;
+            background: #e0e7ff;
+            border-radius: 15px;
+            margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        .timeline-fill {
+            height: 100%;
+            border-radius: 15px;
+            position: absolute;
+        }
+        .timeline-label {
+            position: absolute;
+            left: 10px;
+            top: 5px;
+            color: #0055A6;
+            font-weight: 600;
+            z-index: 2;
+        }
+        
+        /* Pantalla de carga */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: white;
+            font-size: 1.5rem;
+            flex-direction: column;
+        }
+        .loading-spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Botones de exportación */
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .export-button {
+            padding: 10px 15px;
+            background: linear-gradient(to right, #27ae60, #2ecc71);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .export-button.excel {
+            background: linear-gradient(to right, #0055A6, #003366);
+        }
+        
+        /* Responsive pa celus y tablets */
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr;
+            }
+            .panel-left {
+                grid-row: 2;
+            }
+            .panel-right {
+                grid-row: 3;
+            }
+            .chart-row {
+                flex-direction: column;
+            }
+        }
+        @media (max-width: 768px) {
+            .map-container {
+                height: 300px;
+                max-height: 50vh;
+            }
+            .kpi-container {
+                flex-direction: column;
+                gap: 10px;
+            }
+            #projects-list {
+                grid-template-columns: 1fr;
+            }
+            .detail-summary {
+                grid-template-columns: 1fr;
+            }
+            .chart-tabs {
+                flex-wrap: wrap;
+            }
+            .chart-tab {
+                margin-bottom: 5px;
+            }
+            .project-card {
+                height: auto;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="info-panel">
-        <h2>Proyectos Mineros</h2>
-        <div class="file-input">
-            <input type="file" id="excel-file" accept=".xlsx,.xls">
-        </div>
-        <div class="loading" id="loading-message" style="display: none;">
-            <i class="fas fa-spinner fa-spin"></i> Cargando datos...
-        </div>
-        <div class="filter-section" id="filters" style="display: none;">
-            <h3>Filtros</h3>
-            <select id="sector-filter">
-                <option value="">Todos los sectores</option>
-            </select>
-            <select id="etapa-filter">
-                <option value="">Todas las etapas</option>
-            </select>
-            <select id="estado-filter">
-                <option value="">Todos los estados</option>
-            </select>
+    <!-- Notificación pa avisos al usuario -->
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="notification-message">Datos cargados exitosamente</span>
+    </div>
+    
+    <!-- Pantalla de carga cuando se procesa el Excel -->
+    <div class="loading-overlay" id="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p id="loading-message">Procesando archivo...</p>
+    </div>
+    
+    <!-- Contenedor principal del dashboard -->
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-mountain"></i>
+                <h1>Dashboard Ejecutivo - Proyectos Mineros</h1>
+            </div>
+            <div class="kpi-container">
+                <div class="kpi-box">
+                    <div class="kpi-value" id="total-projects">0</div>
+                    <div class="kpi-label">TOTAL PROYECTOS</div>
+                </div>
+                <div class="kpi-box">
+                    <div class="kpi-value" id="total-capex">0</div>
+                    <div class="kpi-label">INVERSIÓN (US$ MM)</div>
+                </div>
+                <div class="kpi-box">
+                    <div class="kpi-value" id="active-projects">0</div>
+                    <div class="kpi-label">PROYECTOS ACTIVOS</div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Panel izquierdo con filtros y gráficos -->
+        <div class="panel-left">
+            <div class="filters-section">
+                <h2><i class="fas fa-filter"></i> Filtros Avanzados</h2>
+                
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="global-search" placeholder="Buscar proyecto por nombre...">
+                </div>
+                
+                <!-- Filtros pa buscar proyectos -->
+                <div class="filter-group">
+                    <label>País</label>
+                    <select id="country-filter">
+                        <option value="">Todos los países</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Sector</label>
+                    <select id="sector-filter">
+                        <option value="">Todos los sectores</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Etapa</label>
+                    <select id="etapa-filter">
+                        <option value="">Todas las etapas</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Estado</label>
+                    <select id="estado-filter">
+                        <option value="">Todos los estados</option>
+                    </select>
+                </div>
+                
+                <!-- Filtro de inversión -->
+                <div class="filter-group">
+                    <label>Inversión (Capex en US$ MM)</label>
+                    <div class="capex-filter">
+                        <input type="number" id="min-capex" placeholder="Mínimo">
+                        <input type="number" id="max-capex" placeholder="Máximo">
+                    </div>
+                </div>
+                
+                <!-- Botón pa aplicar los filtros -->
+                <button id="apply-filters" style="width: 100%; padding: 12px; background: linear-gradient(to right, #0055A6, #003366); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    APLICAR FILTROS
+                </button>
+                
+                <!-- Área pa subir archivos Excel -->
+                <div class="file-upload" id="file-upload-area">
+                    <i class="fas fa-file-excel"></i>
+                    <h3>Cargar Archivo Excel</h3>
+                    <p>Arrastra tu archivo aquí o haz clic para seleccionar</p>
+                    <p><small>Formatos soportados: .xlsx, .xls</small></p>
+                    <input type="file" id="excel-file" accept=".xlsx,.xls" style="display: none;">
+                </div>
+
+                <!-- Botones pa exportar datos -->
+                <div class="export-buttons">
+                    <button class="export-button excel" onclick="exportToExcel()">
+                        <i class="fas fa-file-excel"></i> Exportar a Excel
+                    </button>
+                    <button class="export-button" onclick="exportToPDF()">
+                        <i class="fas fa-file-pdf"></i> Exportar a PDF
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Contenedor de gráficos -->
+            <div class="charts-container">
+                <!-- Fila 1: Gráficos principales -->
+                <div class="chart-row">
+                    <div class="chart-box">
+                        <h3><i class="fas fa-trophy"></i> Rankings de Empresas</h3>
+                        
+                        <!-- Tabs pa cambiar entre tipos de ranking -->
+                        <div class="chart-tabs">
+                            <div class="chart-tab active" data-chart="ranking-projects">Por Proyectos</div>
+                            <div class="chart-tab" data-chart="ranking-capex">Por Inversión</div>
+                            <div class="chart-tab" data-chart="ranking-diversity">Por Diversidad</div>
+                        </div>
+                        
+                        <!-- Tabla de ranking por cantidad de proyectos -->
+                        <div class="chart-container active" id="ranking-projects">
+                            <table class="ranking-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Empresa</th>
+                                        <th>Proyectos</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ranking-projects-body">
+                                    <!-- Los datos se llenarán dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Tabla de ranking por inversión -->
+                        <div class="chart-container" id="ranking-capex">
+                            <table class="ranking-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Empresa</th>
+                                        <th>Inversión (US$ MM)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ranking-capex-body">
+                                    <!-- Los datos se llenarán dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Tabla de ranking por diversidad geográfica -->
+                        <div class="chart-container" id="ranking-diversity">
+                            <table class="ranking-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Empresa</th>
+                                        <th>Países</th>
+                                        <th>Etapas</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ranking-diversity-body">
+                                    <!-- Los datos se llenarán dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Gráfico de torta de inversión por sector -->
+                    <div class="chart-box">
+                        <h3><i class="fas fa-chart-pie"></i> Participación por Inversión</h3>
+                        <div class="chart-container">
+                            <canvas id="investment-pie-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Fila 2: Gráficos estratégicos -->
+                <div class="chart-row">
+                    <div class="chart-box">
+                        <h3><i class="fas fa-chart-bar"></i> Top 5 Proyectos por CAPEX</h3>
+                        <div class="chart-container">
+                            <canvas id="top-projects-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-box">
+                        <h3><i class="fas fa-layer-group"></i> Etapas por Sector</h3>
+                        <div class="chart-container">
+                            <canvas id="sector-stacked-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Fila 3: Gráficos avanzados -->
+                <div class="chart-row">
+                    <div class="chart-box">
+                        <h3><i class="fas fa-sitemap"></i> Inversión por Compañía</h3>
+                        <div class="chart-container">
+                            <canvas id="company-bar-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-box">
+                        <h3><i class="fas fa-timeline"></i> Cronograma de Proyectos</h3>
+                        <div id="timeline-container" class="chart-container" style="padding: 10px;">
+                            <!-- Timeline se generará dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         
-        <div class="tab-container">
-            <div class="tab active" id="list-tab">Lista</div>
-            <div class="tab" id="detail-tab">Detalle</div>
-        </div>
-        
-        <div id="projects-list"></div>
-        
-        <div class="detail-view" id="project-detail">
-            <h3 id="detail-title">Detalle del Proyecto 
-                <button class="close-detail" onclick="hideDetail()">Cerrar</button>
-            </h3>
-            <table class="detail-table" id="detail-table">
-                <!-- Los datos se llenarán dinámicamente -->
-            </table>
+        <!-- Panel derecho con mapa y lista de proyectos -->
+        <div class="panel-right">
+            <!-- Mapa con ubicación de proyectos -->
+            <div class="map-container">
+                <div class="map-header">
+                    <h3><i class="fas fa-map-marked-alt"></i> Mapa de Proyectos</h3>
+                    <div class="map-stats">
+                        <span id="map-stats">0 proyectos mostrados</span>
+                    </div>
+                </div>
+                <div id="map"></div>
+                <div class="map-controls">
+                    <button id="markers-toggle" class="active">Marcadores</button>
+                    <button id="heatmap-toggle">Heatmap</button>
+                </div>
+            </div>
+            
+            <!-- Tabs pa alternar entre lista y detalle -->
+            <div class="tabs-container">
+                <div class="tabs-header">
+                    <div class="tab active" data-tab="projects">Lista de Proyectos</div>
+                    <div class="tab" data-tab="detail">Detalle del Proyecto</div>
+                </div>
+                
+                <div class="tab-content">
+                    <!-- Tab de lista de proyectos -->
+                    <div id="projects-tab">
+                        <div class="search-container">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="project-search" placeholder="Buscar proyecto por nombre...">
+                        </div>
+                        <div id="projects-list"></div>
+                    </div>
+                    
+                    <!-- Tab de detalle de proyecto -->
+                    <div id="detail-tab" class="detail-view">
+                        <div class="detail-header">
+                            <h2 class="detail-title" id="detail-title">Detalle del Proyecto</h2>
+                            <button class="close-detail" onclick="hideDetail()">
+                                <i class="fas fa-times"></i> Cerrar
+                            </button>
+                        </div>
+                        
+                        <!-- Resumen del proyecto -->
+                        <div class="detail-summary">
+                            <div class="summary-card">
+                                <h4>INVERSIÓN TOTAL</h4>
+                                <div class="summary-value" id="summary-capex">0 MM US$</div>
+                            </div>
+                            <div class="summary-card">
+                                <h4>ETAPA</h4>
+                                <div class="summary-value" id="summary-etapa">-</div>
+                            </div>
+                            <div class="summary-card">
+                                <h4>ESTADO</h4>
+                                <div class="summary-value" id="summary-estado">-</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Información general -->
+                        <div class="detail-grid">
+                            <div class="detail-card">
+                                <h4><i class="fas fa-info-circle"></i> Información General</h4>
+                                <div class="detail-content">
+                                    <p><strong>Nombre:</strong> <span id="detail-name"></span></p>
+                                    <p><strong>Sector:</strong> <span id="detail-sector"></span></p>
+                                    <p><strong>Área:</strong> <span id="detail-area"></span></p>
+                                    <p><strong>País:</strong> <span id="detail-pais"></span></p>
+                                    <p><strong>Fecha Inicio:</strong> <span id="detail-fecha"></span></p>
+                                </div>
+                            </div>
+                            
+                            <div class="detail-card">
+                                <h4><i class="fas fa-building"></i> Compañías Relacionadas</h4>
+                                <div class="companies-list" id="detail-companies"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tabla con todos los datos del proyecto -->
+                        <h3 style="margin: 20px 0 15px; color: #0055A6; border-bottom: 1px solid #e0e7ff; padding-bottom: 10px;">
+                            <i class="fas fa-table"></i> Información Completa
+                        </h3>
+                        <table class="detail-table">
+                            <tr>
+                                <th>Campo</th>
+                                <th>Valor</th>
+                            </tr>
+                            <tbody id="detail-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
+    <!-- Librerías JavaScript -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     <script>
-        // Variables globales
-        let projects = [];
-        const markers = {};
-        let map;
-        let currentProject = null;
+        // Variables globales pa manejar los proyectos
+        let projects = [];       // Todos los proyectos mineros
+        let filteredProjects = []; // Proyectos filtrados
+        const markers = {};      // Marcadores en el mapa
+        let map;                 // Instancia del mapa
+        let heatmapLayer;        // Capa del heatmap
+        let investmentPieChart, topProjectsChart, sectorStackedChart, companyBarChart; // Gráficos
         
-        // Inicializar el mapa
-        function initMap() {
-            map = L.map('map').setView([-38.4161, -63.6167], 5);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-        }
-        
-        // Colores por etapa del proyecto
+        // Colores pa cada etapa del proyecto
         const etapaColors = {
-            "Exploración": "#3498db",
-            "Desarrollo": "#e67e22",
+            "Exploración": "#0055A6",
+            "Desarrollo": "#E60028",
             "Producción": "#2ecc71",
             "Construcción": "#9b59b6",
             "Factibilidad": "#1abc9c",
@@ -215,75 +1059,324 @@
             "Evaluación": "#34495e"
         };
         
-        // Manejar la carga del archivo Excel
-        document.getElementById('excel-file').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+        // Función pa inicializar el mapa
+        function initMap() {
+            // Creamos el mapa centrado en Sudamérica
+            map = L.map('map', {
+                zoomControl: false,
+                maxBounds: [[-90, -180], [90, 180]],
+                maxBoundsViscosity: 1.0
+            }).setView([-38.4161, -63.6167], 5);
             
-            document.getElementById('loading-message').style.display = 'block';
-            document.getElementById('filters').style.display = 'none';
-            document.getElementById('projects-list').innerHTML = '';
+            // Añadimos la capa base de OpenStreetMap
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
             
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-                
-                // Procesar los datos según la estructura conocida
-                projects = jsonData.map(row => {
-                    return {
-                        name: row['Nombre del proyecto'] || 'Sin nombre',
-                        sector: row['Sector'] || 'Desconocido',
-                        area: row['Área'] || 'Desconocido',
-                        pais: row['País'] || 'Desconocido',
-                        etapa: row['Etapa'] || 'Desconocido',
-                        companias: row['Compañías relacionadas'] || 'Desconocido',
-                        capex: row['Capex (US$ mn)'] || 'N/A',
-                        tipo: row['Tipo de proyecto'] || 'Desconocido',
-                        productos: row['Productos y Servicios'] || 'Desconocido',
-                        estado: row['Estado'] || 'Desconocido',
-                        coordinates: [
-                            parseFloat(row['Latitud']) || 0,
-                            parseFloat(row['Longitud']) || 0
-                        ]
-                    };
-                }).filter(proj => proj.coordinates[0] !== 0 && proj.coordinates[1] !== 0);
-                
-                processProjects();
-            };
-            reader.readAsArrayBuffer(file);
-        });
+            // Añadimos control de zoom
+            L.control.zoom({ position: 'topright' }).addTo(map);
+        }
         
-        // Procesar proyectos y mostrar en mapa
-        function processProjects() {
-            // Limpiar marcadores existentes
-            for (const marker of Object.values(markers)) {
-                map.removeLayer(marker);
+        // Función pa mostrar notificaciones al usuario
+        function showNotification(message, isError = false) {
+            const notification = document.getElementById('notification');
+            const messageEl = document.getElementById('notification-message');
+            
+            messageEl.textContent = message;
+            notification.className = 'notification';
+            
+            // Si es un error, cambiamos el color a rojo
+            if (isError) {
+                notification.classList.add('error');
+                notification.querySelector('i').className = 'fas fa-exclamation-circle';
+            } else {
+                notification.querySelector('i').className = 'fas fa-check-circle';
             }
             
-            // Llenar filtros con valores únicos
+            // Mostramos la notificación
+            notification.classList.add('show');
+            
+            // La ocultamos después de 3 segundos
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // Función pa cargar datos desde un archivo Excel
+        function loadDataFromExcel(file) {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            loadingOverlay.style.display = 'flex';
+            
+            const reader = new FileReader();
+            
+            // Cuando se carga el archivo
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    
+                    // Validamos que el archivo tenga la estructura correcta
+                    const requiredFields = ['Nombre del proyecto', 'Sector', 'País', 'Etapa', 
+                                           'Compañías relacionadas', 'Capex (US$ mn)', 
+                                           'Productos y Servicios', 'Estado', 'Latitud', 'Longitud'];
+                    
+                    if (!jsonData[0] || !requiredFields.every(field => jsonData[0][field] !== undefined)) {
+                        showNotification('El archivo no tiene la estructura esperada', true);
+                        loadingOverlay.style.display = 'none';
+                        return;
+                    }
+                    
+                    // Procesamos los datos del Excel
+                    projects = jsonData.map(row => {
+                        return {
+                            name: row['Nombre del proyecto'] || 'Sin nombre',
+                            sector: row['Sector'] || 'Desconocido',
+                            area: row['Área'] || 'Desconocido',
+                            pais: row['País'] || 'Desconocido',
+                            etapa: row['Etapa'] || 'Desconocido',
+                            companias: row['Compañías relacionadas'] ? 
+                                       (Array.isArray(row['Compañías relacionadas']) ? 
+                                        row['Compañías relacionadas'] : 
+                                        row['Compañías relacionadas'].toString().split(',').map(c => c.trim())) : 
+                                       [],
+                            capex: row['Capex (US$ mn)'] || 0,
+                            tipo: row['Tipo de proyecto'] || 'Desconocido',
+                            productos: row['Productos y Servicios'] || 'Desconocido',
+                            estado: row['Estado'] || 'Desconocido',
+                            fecha_inicio: row['Fecha Inicio'] || 'No disponible',
+                            coordinates: [
+                                parseFloat(row['Latitud']) || 0,
+                                parseFloat(row['Longitud']) || 0
+                            ]
+                        };
+                    }).filter(proj => proj.coordinates[0] !== 0 && proj.coordinates[1] !== 0);
+                    
+                    // Actualizamos el dashboard con los nuevos datos
+                    processProjects();
+                    showNotification(`Datos cargados: ${projects.length} proyectos mineros`);
+                    loadingOverlay.style.display = 'none';
+                    
+                } catch (error) {
+                    console.error('Error al procesar el archivo:', error);
+                    showNotification('Error al procesar el archivo: ' + error.message, true);
+                    loadingOverlay.style.display = 'none';
+                }
+            };
+            
+            // Manejo de errores al leer el archivo
+            reader.onerror = function() {
+                showNotification('Error al leer el archivo', true);
+                loadingOverlay.style.display = 'none';
+            };
+            
+            // Leemos el archivo como array buffer
+            reader.readAsArrayBuffer(file);
+        }
+        
+        // Función pa cargar datos de ejemplo
+        function loadSampleData() {
+            // Proyectos mineros de ejemplo
+            projects = [
+                {
+                    name: "Proyecto Cobre Andino",
+                    sector: "Cobre",
+                    area: "Norte",
+                    pais: "Chile",
+                    etapa: "Exploración",
+                    companias: ["Minera Andes SA", "Cobre Global"],
+                    capex: 1500,
+                    tipo: "Subterráneo",
+                    productos: "Cobre, Oro",
+                    estado: "En evaluación",
+                    fecha_inicio: "2020-03-15",
+                    coordinates: [-33.45694, -70.64827]
+                },
+                {
+                    name: "Mina de Oro Dorada",
+                    sector: "Oro",
+                    area: "Centro",
+                    pais: "Perú",
+                    etapa: "Producción",
+                    companias: ["OroPerú SAC", "GoldCorp"],
+                    capex: 3200,
+                    tipo: "A cielo abierto",
+                    productos: "Oro, Plata",
+                    estado: "Producción",
+                    fecha_inicio: "2018-11-22",
+                    coordinates: [-12.046374, -77.042793]
+                },
+                {
+                    name: "Hierro del Sur",
+                    sector: "Hierro",
+                    area: "Sur",
+                    pais: "Brasil",
+                    etapa: "Construcción",
+                    companias: ["Vale SA", "Minera Brasileira"],
+                    capex: 4500,
+                    tipo: "A cielo abierto",
+                    productos: "Hierro",
+                    estado: "Construcción",
+                    fecha_inicio: "2021-07-10",
+                    coordinates: [-15.77972, -47.92972]
+                },
+                {
+                    name: "Proyecto Plata Norte",
+                    sector: "Plata",
+                    area: "Norte",
+                    pais: "México",
+                    etapa: "Factibilidad",
+                    companias: ["Peñoles", "Silver Resources"],
+                    capex: 2800,
+                    tipo: "Subterráneo",
+                    productos: "Plata, Zinc",
+                    estado: "En estudio",
+                    fecha_inicio: "2019-05-30",
+                    coordinates: [19.432608, -99.133209]
+                },
+                {
+                    name: "Cobre Austral",
+                    sector: "Cobre",
+                    area: "Sur",
+                    pais: "Argentina",
+                    etapa: "Desarrollo",
+                    companias: ["Glencore", "Minera Patagonia"],
+                    capex: 5100,
+                    tipo: "A cielo abierto",
+                    productos: "Cobre, Molibdeno",
+                    estado: "Desarrollo",
+                    fecha_inicio: "2022-01-18",
+                    coordinates: [-34.603722, -58.381592]
+                },
+                {
+                    name: "Zinc del Valle",
+                    sector: "Zinc",
+                    area: "Centro",
+                    pais: "Colombia",
+                    etapa: "Evaluación",
+                    companias: ["Minera Colombiana", "Zinc Resources"],
+                    capex: 1800,
+                    tipo: "Subterráneo",
+                    productos: "Zinc, Plomo",
+                    estado: "En evaluación",
+                    fecha_inicio: "2021-09-05",
+                    coordinates: [4.7110, -74.0721]
+                },
+                {
+                    name: "Mina de Carbón Central",
+                    sector: "Carbón",
+                    area: "Centro",
+                    pais: "Estados Unidos",
+                    etapa: "Producción",
+                    companias: ["CoalCorp", "Energy Resources"],
+                    capex: 3400,
+                    tipo: "A cielo abierto",
+                    productos: "Carbón térmico",
+                    estado: "Producción",
+                    fecha_inicio: "2017-04-12",
+                    coordinates: [37.0902, -95.7129]
+                },
+                {
+                    name: "Proyecto Estaño Andino",
+                    sector: "Estaño",
+                    area: "Sur",
+                    pais: "Bolivia",
+                    etapa: "Construcción",
+                    companias: ["Minera Boliviana", "TinCorp"],
+                    capex: 2200,
+                    tipo: "Subterráneo",
+                    productos: "Estaño, Plata",
+                    estado: "Construcción",
+                    fecha_inicio: "2023-02-28",
+                    coordinates: [-16.2902, -63.5887]
+                }
+            ];
+            
+            // Procesamos los proyectos de ejemplo
+            processProjects();
+            showNotification(`Datos de muestra cargados: ${projects.length} proyectos mineros`);
+        }
+        
+        // Función pa actualizar todos los gráficos
+        function updateAllCharts() {
+            updateKPIs();
+            updateInvestmentPieChart();
+            updateTopProjectsChart();
+            updateSectorStackedChart();
+            updateCompanyBarChart();
+            updateRankings();
+            updateTimeline();
+        }
+        
+        // Función principal pa procesar proyectos
+        function processProjects() {
+            updateAllCharts();
+            renderProjectsList();
+            updateMap();
+        }
+        
+        // Función pa actualizar los KPI principales
+        function updateKPIs() {
+            // Total de proyectos
+            document.getElementById('total-projects').textContent = projects.length;
+            
+            // Inversión total sumando todos los capex
+            const totalCapex = projects.reduce((sum, project) => {
+                const capex = parseFloat(project.capex) || 0;
+                return sum + capex;
+            }, 0);
+            document.getElementById('total-capex').textContent = totalCapex.toLocaleString('es-ES');
+            
+            // Proyectos activos (producción, desarrollo, construcción)
+            const activeStatuses = [
+                'producción', 'desarrollo', 'construcción', 'estudio', 
+                'activo', 'operación', 'operation', 'operando', 
+                'en operación', 'en ejecución'
+            ];
+
+            const activeProjects = projects.filter(p => {
+                const estado = (p.estado || '').toLowerCase();
+                return activeStatuses.some(status => estado.includes(status));
+            }).length;
+            document.getElementById('active-projects').textContent = activeProjects;
+            
+            // Llenamos los filtros con valores únicos
+            const paises = [...new Set(projects.map(p => p.pais))];
             const sectores = [...new Set(projects.map(p => p.sector))];
             const etapas = [...new Set(projects.map(p => p.etapa))];
             const estados = [...new Set(projects.map(p => p.estado))];
             
-            const sectorFilter = document.getElementById('sector-filter');
-            sectorFilter.innerHTML = '<option value="">Todos los sectores</option>' + 
+            document.getElementById('country-filter').innerHTML = 
+                '<option value="">Todos los países</option>' + 
+                paises.map(p => `<option value="${p}">${p}</option>`).join('');
+            
+            document.getElementById('sector-filter').innerHTML = 
+                '<option value="">Todos los sectores</option>' + 
                 sectores.map(s => `<option value="${s}">${s}</option>`).join('');
             
-            const etapaFilter = document.getElementById('etapa-filter');
-            etapaFilter.innerHTML = '<option value="">Todas las etapas</option>' + 
+            document.getElementById('etapa-filter').innerHTML = 
+                '<option value="">Todas las etapas</option>' + 
                 etapas.map(e => `<option value="${e}">${e}</option>`).join('');
             
-            const estadoFilter = document.getElementById('estado-filter');
-            estadoFilter.innerHTML = '<option value="">Todos los estados</option>' + 
+            document.getElementById('estado-filter').innerHTML = 
+                '<option value="">Todos los estados</option>' + 
                 estados.map(e => `<option value="${e}">${e}</option>`).join('');
+        }
+        
+        // Función pa actualizar el mapa con marcadores
+        function updateMap() {
+            // Limpiamos los marcadores anteriores
+            for (const marker of Object.values(markers)) {
+                if (marker && marker.remove) {
+                    map.removeLayer(marker);
+                }
+            }
             
-            // Crear marcadores
+            // Creamos nuevos marcadores pa cada proyecto
             projects.forEach(project => {
                 const marker = L.circleMarker(project.coordinates, {
-                    radius: 8,
+                    radius: 10,
                     fillColor: etapaColors[project.etapa] || 'gray',
                     color: "#000",
                     weight: 1,
@@ -291,18 +1384,20 @@
                     fillOpacity: 0.8
                 }).addTo(map);
                 
+                // Popup con información básica
                 marker.bindPopup(`
                     <b>${project.name}</b><br>
                     <b>Sector:</b> ${project.sector}<br>
                     <b>Etapa:</b> ${project.etapa}<br>
                     <b>Estado:</b> ${project.estado}<br>
-                    <b>Inversión:</b> ${project.capex}<br>
+                    <b>Inversión:</b> ${project.capex} MM US$<br>
                     <button onclick="showProjectDetail('${project.name}')" 
-                        style="margin-top:5px;padding:3px 8px;background:#2e86de;color:white;border:none;border-radius:3px;cursor:pointer;">
+                        style="margin-top:5px;padding:5px 10px;background:#0055A6;color:white;border:none;border-radius:4px;cursor:pointer;">
                         Ver detalles
                     </button>
                 `);
                 
+                // Evento click para ver detalle
                 marker.on('click', function() {
                     highlightProject(project.name);
                 });
@@ -310,123 +1405,517 @@
                 markers[project.name] = marker;
             });
             
-            // Mostrar filtros y ocultar mensaje de carga
-            document.getElementById('filters').style.display = 'block';
-            document.getElementById('loading-message').style.display = 'none';
+            // Actualizamos el heatmap
+            updateHeatmap();
             
-            // Renderizar lista inicial
-            renderProjectsList();
+            // Ajustamos la vista pa mostrar todos los marcadores
+            const markerGroup = new L.featureGroup(Object.values(markers));
+            map.fitBounds(markerGroup.getBounds().pad(0.2));
             
-            // Configurar tabs
-            document.getElementById('list-tab').addEventListener('click', function() {
-                document.getElementById('list-tab').classList.add('active');
-                document.getElementById('detail-tab').classList.remove('active');
-                document.getElementById('projects-list').style.display = 'block';
-                document.getElementById('project-detail').style.display = 'none';
+            // Actualizamos el contador en el mapa
+            document.getElementById('map-stats').textContent = `${projects.length} proyectos mostrados`;
+        }
+        
+        // Función pa actualizar el heatmap
+        function updateHeatmap() {
+            if (heatmapLayer) {
+                map.removeLayer(heatmapLayer);
+            }
+            
+            // Filtramos coordenadas válidas
+            const heatPoints = projects
+                .filter(project => project.coordinates && 
+                                !isNaN(project.coordinates[0]) && 
+                                !isNaN(project.coordinates[1]))
+                .map(project => {
+                    const capex = parseFloat(project.capex) || 0;
+                    const maxCapex = Math.max(1, ...projects.map(p => parseFloat(p.capex) || 0));
+                    const intensity = capex / maxCapex;
+                    
+                    return [project.coordinates[0], project.coordinates[1], Math.min(intensity * 0.7, 1)];
+                });
+            
+            if (heatPoints.length > 0) {
+                heatmapLayer = L.heatLayer(heatPoints, {
+                    radius: 25,
+                    blur: 15,
+                    maxZoom: 17,
+                    gradient: {0.4: 'blue', 0.6: 'cyan', 0.7: 'lime', 0.8: 'yellow', 1.0: 'red'}
+                });
+                
+                if (document.getElementById('heatmap-toggle').classList.contains('active')) {
+                    heatmapLayer.addTo(map);
+                }
+            }
+        }
+        
+        // Gráfico de torta de inversión por sector
+        function updateInvestmentPieChart() {
+            if (investmentPieChart) investmentPieChart.destroy();
+            
+            // Agrupamos por sector y sumamos el capex
+            const sectorData = {};
+            projects.forEach(project => {
+                const capex = parseFloat(project.capex) || 0;
+                sectorData[project.sector] = (sectorData[project.sector] || 0) + capex;
             });
             
-            document.getElementById('detail-tab').addEventListener('click', function() {
-                if (!currentProject) {
-                    alert('Selecciona un proyecto primero');
-                    return;
+            const sectors = Object.keys(sectorData);
+            const capexValues = Object.values(sectorData);
+            
+            // Si no hay datos, mostramos un mensaje
+            if (sectors.length === 0 || capexValues.reduce((a, b) => a + b, 0) === 0) {
+                document.getElementById('investment-pie-chart').innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:100%;"><p>No hay datos disponibles</p></div>';
+                return;
+            }
+            
+            // Creamos el gráfico de torta
+            const ctx = document.getElementById('investment-pie-chart').getContext('2d');
+            investmentPieChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: sectors,
+                    datasets: [{
+                        data: capexValues,
+                        backgroundColor: [
+                            '#0055A6', '#E60028', '#003366', '#9b59b6', '#2ecc71',
+                            '#1abc9c', '#34495e', '#e67e22', '#16a085', '#27ae60'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round(value / total * 100);
+                                    return `${label}: $${value.toLocaleString()} MM (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
                 }
-                document.getElementById('detail-tab').classList.add('active');
-                document.getElementById('list-tab').classList.remove('active');
-                document.getElementById('projects-list').style.display = 'none';
-                document.getElementById('project-detail').style.display = 'block';
             });
         }
         
-        // Función para renderizar lista de proyectos
+        // Gráfico de barras de los top proyectos por capex
+        function updateTopProjectsChart() {
+            if (topProjectsChart) topProjectsChart.destroy();
+            
+            // Ordenamos proyectos por capex y tomamos los top 5
+            const topProjects = [...projects]
+                .sort((a, b) => (parseFloat(b.capex) || 0) - (parseFloat(a.capex) || 0))
+                .slice(0, 5);
+            
+            // Si no hay datos, mostramos mensaje
+            if (topProjects.length === 0) {
+                document.getElementById('top-projects-chart').innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:100%;"><p>No hay datos disponibles</p></div>';
+                return;
+            }
+            
+            // Creamos el gráfico de barras
+            const ctx = document.getElementById('top-projects-chart').getContext('2d');
+            topProjectsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: topProjects.map(p => p.name),
+                    datasets: [{
+                        label: 'CAPEX (US$ MM)',
+                        data: topProjects.map(p => parseFloat(p.capex) || 0),
+                        backgroundColor: topProjects.map(p => etapaColors[p.etapa] || '#cccccc'),
+                        borderColor: '#333',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Millones de USD' }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const project = topProjects[context.dataIndex];
+                                    return [
+                                        `Sector: ${project.sector}`,
+                                        `Etapa: ${project.etapa}`,
+                                        `CAPEX: $${context.raw.toLocaleString()} MM`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Gráfico de etapas por sector (barras apiladas)
+        function updateSectorStackedChart() {
+            if (sectorStackedChart) sectorStackedChart.destroy();
+            
+            const sectores = [...new Set(projects.map(p => p.sector))];
+            const etapas = [...new Set(projects.map(p => p.etapa))];
+            
+            // Creamos estructura de datos pa el gráfico
+            const datasets = etapas.map(etapa => {
+                return {
+                    label: etapa,
+                    backgroundColor: etapaColors[etapa] || '#cccccc',
+                    data: sectores.map(sector => {
+                        return projects.filter(p => p.sector === sector && p.etapa === etapa).length;
+                    })
+                };
+            });
+            
+            // Si no hay datos, mostramos mensaje
+            if (sectores.length === 0 || etapas.length === 0) {
+                document.getElementById('sector-stacked-chart').innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:100%;"><p>No hay datos disponibles</p></div>';
+                return;
+            }
+            
+            // Creamos el gráfico de barras apiladas
+            const ctx = document.getElementById('sector-stacked-chart').getContext('2d');
+            sectorStackedChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sectores,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            title: { display: true, text: 'Número de Proyectos' }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw} proyectos`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Gráfico de barras horizontales por compañía
+        function updateCompanyBarChart() {
+            if (companyBarChart) companyBarChart.destroy();
+            
+            // Calculamos el capex total por compañía
+            const companyCapex = {};
+            projects.forEach(project => {
+                const capex = parseFloat(project.capex) || 0;
+                project.companias.forEach(company => {
+                    if (company) {
+                        companyCapex[company] = (companyCapex[company] || 0) + capex;
+                    }
+                });
+            });
+            
+            // Tomamos las top 10 compañías
+            const companies = Object.entries(companyCapex)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .map(item => item[0]);
+            
+            // Si no hay datos, mostramos mensaje
+            if (companies.length === 0) {
+                document.getElementById('company-bar-chart').innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:100%;"><p>No hay datos disponibles</p></div>';
+                return;
+            }
+            
+            // Creamos el gráfico de barras horizontales
+            const ctx = document.getElementById('company-bar-chart').getContext('2d');
+            companyBarChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: companies,
+                    datasets: [{
+                        label: 'Inversión (US$ MM)',
+                        data: companies.map(company => companyCapex[company]),
+                        backgroundColor: 'rgba(0, 85, 166, 0.7)',
+                        borderColor: 'rgba(0, 85, 166, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Millones de USD' }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Inversión total: $${context.raw.toLocaleString()} MM`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Función pa actualizar los rankings
+        function updateRankings() {
+            // Ranking por número de proyectos
+            const companyCounts = {};
+            projects.forEach(project => {
+                project.companias.forEach(company => {
+                    if (company) {
+                        companyCounts[company] = (companyCounts[company] || 0) + 1;
+                    }
+                });
+            });
+            
+            const projectsRanking = Object.entries(companyCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+            
+            document.getElementById('ranking-projects-body').innerHTML = projectsRanking
+                .map(([company, count], index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${company}</td>
+                        <td><strong>${count}</strong></td>
+                    </tr>
+                `).join('');
+            
+            // Ranking por inversión
+            const companyCapex = {};
+            projects.forEach(project => {
+                const capex = parseFloat(project.capex) || 0;
+                project.companias.forEach(company => {
+                    if (company) {
+                        companyCapex[company] = (companyCapex[company] || 0) + capex;
+                    }
+                });
+            });
+            
+            const capexRanking = Object.entries(companyCapex)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+            
+            document.getElementById('ranking-capex-body').innerHTML = capexRanking
+                .map(([company, capex], index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${company}</td>
+                        <td><strong>${capex.toLocaleString('es-ES')}</strong></td>
+                    </tr>
+                `).join('');
+        }
+        
+        // Función pa actualizar el timeline de proyectos
+        function updateTimeline() {
+            const timelineContainer = document.getElementById('timeline-container');
+            timelineContainer.innerHTML = '';
+            
+            if (projects.length === 0) {
+                timelineContainer.innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:100%;"><p>No hay proyectos para mostrar</p></div>';
+                return;
+            }
+            
+            // Ordenamos proyectos por fecha de inicio
+            const sortedProjects = [...projects].sort((a, b) => {
+                return new Date(a.fecha_inicio) - new Date(b.fecha_inicio);
+            });
+            
+            // Obtenemos fechas mínima y máxima pa escalar
+            const minDate = new Date(sortedProjects[0].fecha_inicio);
+            const maxDate = new Date(sortedProjects[sortedProjects.length - 1].fecha_inicio);
+            const totalDays = (maxDate - minDate) / (1000 * 60 * 60 * 24);
+            
+            // Creamos cada barra del timeline
+            sortedProjects.forEach(project => {
+                const projectDate = new Date(project.fecha_inicio);
+                const daysFromStart = (projectDate - minDate) / (1000 * 60 * 60 * 24);
+                const percentage = (daysFromStart / totalDays) * 100;
+                
+                const timelineItem = document.createElement('div');
+                timelineItem.className = 'timeline-item';
+                
+                const timelineBar = document.createElement('div');
+                timelineBar.className = 'timeline-bar';
+                
+                const timelineFill = document.createElement('div');
+                timelineFill.className = 'timeline-fill';
+                timelineFill.style.width = `${Math.min(100, Math.max(5, percentage))}%`;
+                timelineFill.style.backgroundColor = etapaColors[project.etapa] || '#cccccc';
+                
+                const timelineLabel = document.createElement('div');
+                timelineLabel.className = 'timeline-label';
+                timelineLabel.textContent = `${project.name} (${project.fecha_inicio})`;
+                
+                timelineBar.appendChild(timelineFill);
+                timelineBar.appendChild(timelineLabel);
+                timelineItem.appendChild(timelineBar);
+                timelineContainer.appendChild(timelineItem);
+            });
+        }
+        
+        // Función pa renderizar la lista de proyectos
         function renderProjectsList(filteredProjects = projects) {
             const projectsList = document.getElementById('projects-list');
             projectsList.innerHTML = '';
             
             if (filteredProjects.length === 0) {
-                projectsList.innerHTML = '<p>No se encontraron proyectos con los filtros seleccionados</p>';
+                projectsList.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; padding: 30px;">No se encontraron proyectos con los filtros seleccionados</p>';
                 return;
             }
             
-            filteredProjects.forEach(project => {
+            // Mostramos solo los primeros 50 proyectos pa no saturar
+            const projectsToShow = filteredProjects.slice(0, 50);
+            
+            // Creamos una card pa cada proyecto
+            projectsToShow.forEach(project => {
                 const projectCard = document.createElement('div');
                 projectCard.className = 'project-card';
                 projectCard.id = `project-${project.name.replace(/\s+/g, '-')}`;
+                
+                const capex = parseFloat(project.capex) || 0;
+                const formattedCapex = capex > 0 ? `${capex.toLocaleString('es-ES')} MM US$` : 'No disponible';
+                
                 projectCard.innerHTML = `
-                    <h3>${project.name}</h3>
-                    <div class="project-details">
-                        <p><strong>Sector:</strong> ${project.sector}</p>
-                        <p><strong>Etapa:</strong> <span style="color:${etapaColors[project.etapa] || '#000'}">${project.etapa}</span></p>
-                        <p><strong>Estado:</strong> ${project.estado}</p>
-                        <p><strong>Inversión:</strong> ${project.capex} US$ mn</p>
+                    <div class="project-header">
+                        <h3>${project.name}</h3>
+                        <div class="project-status">${project.etapa}</div>
                     </div>
-                    <button onclick="showProjectDetail('${project.name}')">Ver detalles completos</button>
+                    <div class="project-body">
+                        <div class="project-info">
+                            <div><i class="fas fa-industry"></i> ${project.sector}</div>
+                            <div><i class="fas fa-globe-americas"></i> ${project.pais}</div>
+                            <div><i class="fas fa-calendar"></i> ${project.fecha_inicio}</div>
+                        </div>
+                        <div class="project-capex">${formattedCapex}</div>
+                    </div>
                 `;
                 projectCard.addEventListener('click', (e) => {
-                    // Evitar que se active cuando se hace clic en el botón
-                    if (!e.target.closest('button')) {
-                        highlightProject(project.name);
-                    }
+                    showProjectDetail(project.name);
                 });
                 projectsList.appendChild(projectCard);
             });
+            
+            // Si hay más de 50 proyectos, mostramos un aviso
+            if (filteredProjects.length > 50) {
+                const counter = document.createElement('div');
+                counter.style.gridColumn = '1 / -1';
+                counter.style.textAlign = 'center';
+                counter.style.padding = '10px';
+                counter.innerHTML = `<p>Mostrando 50 de ${filteredProjects.length} proyectos. Usa los filtros para ver más.</p>`;
+                projectsList.appendChild(counter);
+            }
         }
         
-        // Función para mostrar el detalle completo de un proyecto
+        // Función pa mostrar el detalle completo de un proyecto
         window.showProjectDetail = function(projectName) {
             const project = projects.find(p => p.name === projectName);
             if (!project) return;
             
-            currentProject = project;
+            // Sanitizamos los inputs pa prevenir XSS
+            const sanitize = (str) => {
+                return String(str).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            };
             
-            // Actualizar el título
-            document.getElementById('detail-title').innerHTML = `Detalle: ${project.name} <button class="close-detail" onclick="hideDetail()">Cerrar</button>`;
+            // Actualizamos el título
+            document.getElementById('detail-title').textContent = sanitize(project.name);
             
-            // Crear la tabla de detalles
-            const detailTable = document.getElementById('detail-table');
-            detailTable.innerHTML = `
-                <tr>
-                    <th>Campo</th>
-                    <th>Valor</th>
-                </tr>
+            // Actualizamos la información básica
+            document.getElementById('detail-name').textContent = sanitize(project.name);
+            document.getElementById('detail-sector').textContent = sanitize(project.sector);
+            document.getElementById('detail-area').textContent = sanitize(project.area);
+            document.getElementById('detail-pais').textContent = sanitize(project.pais);
+            document.getElementById('detail-fecha').textContent = sanitize(project.fecha_inicio);
+            
+            const capex = parseFloat(project.capex) || 0;
+            document.getElementById('summary-capex').textContent = capex > 0 ? 
+                `${capex.toLocaleString('es-ES')} MM US$` : 'No disponible';
+            document.getElementById('summary-etapa').textContent = sanitize(project.etapa);
+            document.getElementById('summary-estado').textContent = sanitize(project.estado);
+            
+            // Actualizamos las compañías relacionadas
+            const companiesList = document.getElementById('detail-companies');
+            companiesList.innerHTML = '';
+            project.companias.forEach(company => {
+                if (company) {
+                    const tag = document.createElement('div');
+                    tag.className = 'company-tag';
+                    tag.textContent = sanitize(company);
+                    companiesList.appendChild(tag);
+                }
+            });
+            
+            // Actualizamos la tabla completa con todos los datos
+            const tableBody = document.getElementById('detail-table-body');
+            tableBody.innerHTML = `
                 <tr>
                     <td>Nombre del Proyecto</td>
-                    <td>${project.name}</td>
+                    <td>${sanitize(project.name)}</td>
                 </tr>
                 <tr>
                     <td>Sector</td>
-                    <td>${project.sector}</td>
+                    <td>${sanitize(project.sector)}</td>
                 </tr>
                 <tr>
                     <td>Área</td>
-                    <td>${project.area}</td>
+                    <td>${sanitize(project.area)}</td>
                 </tr>
                 <tr>
                     <td>País</td>
-                    <td>${project.pais}</td>
+                    <td>${sanitize(project.pais)}</td>
                 </tr>
                 <tr>
                     <td>Etapa</td>
-                    <td><span style="color:${etapaColors[project.etapa] || '#000'}">${project.etapa}</span></td>
+                    <td>${sanitize(project.etapa)}</td>
                 </tr>
                 <tr>
                     <td>Compañías Relacionadas</td>
-                    <td>${project.companias}</td>
+                    <td>${sanitize(project.companias.join(', ') || 'No disponible')}</td>
                 </tr>
                 <tr>
-                    <td>Inversión (Capex)</td>
-                    <td>${project.capex} US$ mn</td>
+                    <td>Capex (US$ MM)</td>
+                    <td>${capex > 0 ? sanitize(capex.toLocaleString('es-ES')) : 'No disponible'}</td>
                 </tr>
                 <tr>
                     <td>Tipo de Proyecto</td>
-                    <td>${project.tipo}</td>
+                    <td>${sanitize(project.tipo)}</td>
                 </tr>
                 <tr>
-                    <td>Productos/Servicios</td>
-                    <td>${project.productos}</td>
+                    <td>Productos y Servicios</td>
+                    <td>${sanitize(project.productos)}</td>
                 </tr>
                 <tr>
                     <td>Estado</td>
-                    <td>${project.estado}</td>
+                    <td>${sanitize(project.estado)}</td>
+                </tr>
+                <tr>
+                    <td>Fecha Inicio</td>
+                    <td>${sanitize(project.fecha_inicio)}</td>
                 </tr>
                 <tr>
                     <td>Ubicación</td>
@@ -434,33 +1923,27 @@
                 </tr>
             `;
             
-            // Mostrar la vista de detalle
-            document.getElementById('detail-tab').classList.add('active');
-            document.getElementById('list-tab').classList.remove('active');
-            document.getElementById('projects-list').style.display = 'none';
-            document.getElementById('project-detail').style.display = 'block';
+            // Mostramos la pestaña de detalle
+            document.querySelector('[data-tab="detail"]').click();
             
-            // Resaltar en el mapa
+            // Resaltamos el proyecto en el mapa
             highlightProject(projectName);
             zoomToProject(projectName);
         };
         
-        // Función para ocultar el detalle
+        // Función pa ocultar el detalle
         window.hideDetail = function() {
-            document.getElementById('list-tab').classList.add('active');
-            document.getElementById('detail-tab').classList.remove('active');
-            document.getElementById('projects-list').style.display = 'block';
-            document.getElementById('project-detail').style.display = 'none';
+            document.querySelector('[data-tab="projects"]').click();
         };
         
-        // Función para resaltar proyecto
+        // Función pa resaltar un proyecto en el mapa y la lista
         function highlightProject(projectName) {
-            // Quitar resaltado anterior
+            // Quitamos el resaltado anterior
             document.querySelectorAll('.project-card').forEach(card => {
                 card.classList.remove('highlight');
             });
             
-            // Resaltar nuevo
+            // Resaltamos el nuevo proyecto
             const projectCard = document.getElementById(`project-${projectName.replace(/\s+/g, '-')}`);
             if (projectCard) {
                 projectCard.classList.add('highlight');
@@ -469,20 +1952,20 @@
             
             // Animación en el mapa
             if (markers[projectName]) {
-                markers[projectName].setStyle({ fillColor: '#f1c40f', radius: 12 });
+                markers[projectName].setStyle({ fillColor: '#E60028', radius: 12 });
                 setTimeout(() => {
                     const project = projects.find(p => p.name === projectName);
                     if (project) {
                         markers[projectName].setStyle({ 
                             fillColor: etapaColors[project.etapa] || 'gray',
-                            radius: 8 
+                            radius: 10 
                         });
                     }
                 }, 2000);
             }
         }
         
-        // Función para hacer zoom al proyecto
+        // Función pa hacer zoom al proyecto en el mapa
         window.zoomToProject = function(projectName) {
             const project = projects.find(p => p.name === projectName);
             if (project) {
@@ -491,27 +1974,173 @@
             }
         };
         
-        // Aplicar filtros
-        document.getElementById('sector-filter').addEventListener('change', applyFilters);
-        document.getElementById('etapa-filter').addEventListener('change', applyFilters);
-        document.getElementById('estado-filter').addEventListener('change', applyFilters);
+        // Configuramos la subida de archivos
+        function setupFileUpload() {
+            const dropArea = document.getElementById('file-upload-area');
+            const fileInput = document.getElementById('excel-file');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            
+            // Manejar clic en el área de carga
+            dropArea.addEventListener('click', (e) => {
+                if (e.target !== fileInput) {
+                    fileInput.click();
+                }
+            });
+            
+            // Manejar selección de archivo
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    if (validateFile(file)) {
+                        loadingOverlay.style.display = 'flex';
+                        document.getElementById('loading-message').textContent = 'Procesando archivo...';
+                        loadDataFromExcel(file);
+                    }
+                }
+            });
+            
+            // Manejar drag over
+            dropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropArea.style.backgroundColor = '#d1e7ff';
+                dropArea.style.borderColor = '#0055A6';
+            });
+            
+            // Manejar drag leave
+            dropArea.addEventListener('dragleave', () => {
+                dropArea.style.backgroundColor = '#e8f4ff';
+                dropArea.style.borderColor = '#0055A6';
+            });
+            
+            // Manejar drop
+            dropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropArea.style.backgroundColor = '#e8f4ff';
+                dropArea.style.borderColor = '#0055A6';
+                
+                if (e.dataTransfer.files.length) {
+                    const file = e.dataTransfer.files[0];
+                    if (validateFile(file)) {
+                        fileInput.files = e.dataTransfer.files;
+                        loadingOverlay.style.display = 'flex';
+                        document.getElementById('loading-message').textContent = 'Procesando archivo...';
+                        loadDataFromExcel(file);
+                    }
+                }
+            });
+            
+            // Función pa validar el archivo
+            function validateFile(file) {
+                // Validar extensión del archivo
+                if (!file.name.match(/\.(xlsx|xls)$/i)) {
+                    showNotification('Solo se permiten archivos Excel (.xlsx, .xls)', true);
+                    return false;
+                }
+                
+                // Validar tamaño del archivo (límite de 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    showNotification('El archivo es demasiado grande (máximo 5MB)', true);
+                    return false;
+                }
+                
+                return true;
+            }
+        }
         
+        // Aplicar los filtros seleccionados
         function applyFilters() {
+            const pais = document.getElementById('country-filter').value;
             const sector = document.getElementById('sector-filter').value;
             const etapa = document.getElementById('etapa-filter').value;
             const estado = document.getElementById('estado-filter').value;
+            const minCapex = parseFloat(document.getElementById('min-capex').value) || 0;
+            const maxCapex = parseFloat(document.getElementById('max-capex').value) || Infinity;
             
-            const filtered = projects.filter(project => {
-                return (!sector || project.sector === sector) &&
+            // Filtramos los proyectos según los criterios
+            filteredProjects = projects.filter(project => {
+                const capex = parseFloat(project.capex) || 0;
+                return (!pais || project.pais === pais) &&
+                       (!sector || project.sector === sector) &&
                        (!etapa || project.etapa === etapa) &&
-                       (!estado || project.estado === estado);
+                       (!estado || project.estado === estado) &&
+                       capex >= minCapex && capex <= maxCapex;
             });
             
-            renderProjectsList(filtered);
+            // Actualizamos la lista de proyectos
+            renderProjectsList(filteredProjects);
             
-            // Mostrar/ocultar marcadores
+            // Mostramos/ocultamos marcadores según el filtro
             Object.keys(markers).forEach(projectName => {
-                const shouldShow = filtered.some(p => p.name === projectName);
+                const shouldShow = filteredProjects.some(p => p.name === projectName);
+                if (markers[projectName]) {
+                    if (shouldShow) {
+                        map.addLayer(markers[projectName]);
+                    } else {
+                        map.removeLayer(markers[projectName]);
+                    }
+                }
+            });
+            
+            // Actualizamos las estadísticas del mapa
+            document.getElementById('map-stats').textContent = `${filteredProjects.length} proyectos mostrados`;
+            
+            // Actualizamos los KPIs con los proyectos filtrados
+            document.getElementById('total-projects').textContent = filteredProjects.length;
+            
+            const totalCapex = filteredProjects.reduce((sum, project) => {
+                const capex = parseFloat(project.capex) || 0;
+                return sum + capex;
+            }, 0);
+            document.getElementById('total-capex').textContent = totalCapex.toLocaleString('es-ES');
+            
+            const activeProjects = filteredProjects.filter(p => 
+                ['Producción', 'Desarrollo', 'Construcción', 'En estudio'].includes(p.estado)
+            ).length;
+            document.getElementById('active-projects').textContent = activeProjects;
+        }
+        
+        // Configurar los buscadores con debounce
+        function setupSearch() {
+            const globalSearch = document.getElementById('global-search');
+            const projectSearch = document.getElementById('project-search');
+            
+            // Función debounce pa evitar muchas llamadas
+            function debounce(func, wait) {
+                let timeout;
+                return function() {
+                    const context = this;
+                    const args = arguments;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(context, args), wait);
+                };
+            }
+            
+            // Búsqueda global (filtra todo el dashboard)
+            globalSearch.addEventListener('input', debounce(function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                const filtered = projects.filter(project => 
+                    project.name.toLowerCase().includes(searchTerm)
+                );
+                
+                renderProjectsList(filtered);
+                updateMarkersVisibility(filtered);
+                document.getElementById('map-stats').textContent = `${filtered.length} proyectos mostrados`;
+            }, 300));
+            
+            // Búsqueda en lista de proyectos
+            projectSearch.addEventListener('input', debounce(function() {
+                const searchTerm = this.value.toLowerCase().trim();
+                const filtered = projects.filter(project => 
+                    project.name.toLowerCase().includes(searchTerm)
+                );
+                renderProjectsList(filtered);
+            }, 300));
+        }
+        
+        // Actualizar visibilidad de marcadores
+        function updateMarkersVisibility(filteredProjects) {
+            Object.keys(markers).forEach(projectName => {
+                const shouldShow = filteredProjects.some(p => p.name === projectName);
                 if (markers[projectName]) {
                     if (shouldShow) {
                         map.addLayer(markers[projectName]);
@@ -522,8 +2151,194 @@
             });
         }
         
-        // Inicializar el mapa al cargar la página
-        initMap();
+        // Exportar a Excel
+        window.exportToExcel = function() {
+            try {
+                // Creamos un libro de Excel
+                const wb = XLSX.utils.book_new();
+                
+                // Creamos los datos de la hoja
+                const ws_data = [
+                    ['Nombre', 'Sector', 'País', 'Etapa', 'Capex (US$ MM)', 'Estado']
+                ];
+                
+                // Añadimos cada proyecto
+                projects.forEach(project => {
+                    ws_data.push([
+                        project.name,
+                        project.sector,
+                        project.pais,
+                        project.etapa,
+                        project.capex,
+                        project.estado
+                    ]);
+                });
+                
+                const ws = XLSX.utils.aoa_to_sheet(ws_data);
+                
+                // Añadimos la hoja al libro
+                XLSX.utils.book_append_sheet(wb, ws, "Proyectos Mineros");
+                
+                // Exportamos el archivo
+                XLSX.writeFile(wb, "proyectos_mineros.xlsx");
+                showNotification('Datos exportados a Excel');
+            } catch (error) {
+                console.error('Error al exportar a Excel:', error);
+                showNotification('Error al exportar a Excel', true);
+            }
+        };
+        
+        // Exportar a PDF
+        window.exportToPDF = function() {
+            try {
+                // Creamos el documento PDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // Título del reporte
+                doc.setFontSize(18);
+                doc.text('Reporte de Proyectos Mineros', 105, 15, null, null, 'center');
+                
+                // Fecha de generación
+                doc.setFontSize(10);
+                const fecha = new Date().toLocaleDateString('es-CL');
+                doc.text(`Fecha: ${fecha}`, 15, 25);
+                
+                // Creamos los datos de la tabla
+                const tableData = [
+                    ['Nombre', 'Sector', 'País', 'Capex (US$ MM)']
+                ];
+                
+                projects.forEach(project => {
+                    tableData.push([
+                        project.name,
+                        project.sector,
+                        project.pais,
+                        project.capex
+                    ]);
+                });
+                
+                // Añadimos la tabla al PDF
+                doc.autoTable({
+                    head: [tableData[0]],
+                    body: tableData.slice(1),
+                    startY: 30,
+                    theme: 'grid',
+                    styles: { fontSize: 10 },
+                    headStyles: { fillColor: [0, 85, 166] }
+                });
+                
+                // Guardamos el PDF
+                doc.save('proyectos_mineros.pdf');
+                showNotification('Datos exportados a PDF');
+            } catch (error) {
+                console.error('Error al exportar a PDF:', error);
+                showNotification('Error al exportar a PDF', true);
+            }
+        };
+        
+        // Inicializar pestañas de gráficos
+        function initChartTabs() {
+            const chartTabs = document.querySelectorAll('.chart-tab');
+            chartTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Quitamos activo de todas las pestañas
+                    chartTabs.forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.chart-container').forEach(c => c.classList.remove('active'));
+                    
+                    // Activamos la pestaña actual
+                    this.classList.add('active');
+                    const chartId = this.getAttribute('data-chart');
+                    document.getElementById(chartId).classList.add('active');
+                });
+            });
+        }
+        
+        // Inicializar pestañas principales
+        function initMainTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Actualizamos pestañas activas
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Mostramos el contenido correspondiente
+                    const tabName = this.getAttribute('data-tab');
+                    if (tabName === 'projects') {
+                        document.getElementById('projects-tab').style.display = 'block';
+                        document.getElementById('detail-tab').style.display = 'none';
+                    } else if (tabName === 'detail') {
+                        if (!document.querySelector('.project-card.highlight')) {
+                            showNotification('Por favor selecciona un proyecto primero', true);
+                            document.querySelector('[data-tab="projects"]').click();
+                            return;
+                        }
+                        document.getElementById('projects-tab').style.display = 'none';
+                        document.getElementById('detail-tab').style.display = 'block';
+                    }
+                });
+            });
+        }
+        
+        // Configurar controles del mapa
+        function setupMapControls() {
+            document.getElementById('markers-toggle').addEventListener('click', function() {
+                this.classList.add('active');
+                document.getElementById('heatmap-toggle').classList.remove('active');
+                
+                // Mostrar marcadores
+                Object.values(markers).forEach(marker => {
+                    if (map.hasLayer(marker)) return;
+                    marker.addTo(map);
+                });
+                
+                // Ocultar heatmap
+                if (heatmapLayer && map.hasLayer(heatmapLayer)) {
+                    map.removeLayer(heatmapLayer);
+                }
+            });
+            
+            document.getElementById('heatmap-toggle').addEventListener('click', function() {
+                this.classList.add('active');
+                document.getElementById('markers-toggle').classList.remove('active');
+                
+                // Ocultar marcadores
+                Object.values(markers).forEach(marker => {
+                    if (map.hasLayer(marker)) {
+                        map.removeLayer(marker);
+                    }
+                });
+                
+                // Mostrar heatmap
+                if (heatmapLayer && !map.hasLayer(heatmapLayer)) {
+                    heatmapLayer.addTo(map);
+                }
+            });
+        }
+        
+        // Función principal pa inicializar la aplicación
+        function initApp() {
+            initMap();
+            setupFileUpload();
+            setupSearch();
+            initChartTabs();
+            initMainTabs();
+            setupMapControls();
+            
+            // Configuramos el botón de aplicar filtros
+            document.getElementById('apply-filters').addEventListener('click', applyFilters);
+            
+            // Cargamos datos de muestra iniciales
+            loadSampleData();
+            
+            // Mostramos mensaje de bienvenida
+            setTimeout(() => {
+                showNotification('Bienvenido al Dashboard Minero. Datos de muestra cargados.');
+            }, 1000);
+        }
+        
+        // Iniciamos la aplicación cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
 </html>

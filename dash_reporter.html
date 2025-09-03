@@ -1,376 +1,787 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Reporte Ejecutivo de Proyectos — Reporter</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
-  <style>
-    :root { --brand:#0055A6; --brand2:#003366; --muted:#64748b; }
-    *{box-sizing:border-box}
-    body{margin:0;background:linear-gradient(135deg,#0c1a3a,#162b50);font-family:Inter,system-ui,sans-serif;color:#0f172a}
-    header{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,var(--brand),var(--brand2));color:#fff;padding:16px 20px}
-    .title{font-weight:800;letter-spacing:.2px}
-    .container{padding:16px;display:grid;grid-template-columns:360px 1fr;gap:16px}
-    .panel{background:#fff;border-radius:12px;padding:14px;box-shadow:0 4px 16px rgba(0,0,0,.06)}
-    .hint{font-size:12px;color:var(--muted)}
-    .btn{border:none;border-radius:10px;padding:10px 12px;color:#fff;font-weight:700;cursor:pointer}
-    .btn.primary{background:linear-gradient(90deg,#0055A6,#003366)}
-    .btn.green{background:linear-gradient(90deg,#27ae60,#2ecc71)}
-    .btn.purple{background:linear-gradient(90deg,#7c3aed,#4f46e5)}
-    .btn.gray{background:linear-gradient(90deg,#475569,#334155)}
-    .list{border:1px solid #e5e7eb;border-radius:10px;padding:10px;max-height:50vh;overflow:auto}
-    .row{display:flex;align-items:center;gap:8px;margin:4px 0}
-    .row label{flex:1}
-    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:10px 0}
-    .kpi{background:#f0f5ff;border:1px solid #c7d2fe;border-radius:10px;padding:10px 12px;text-align:center}
-    .kpi .t{font-weight:800;color:var(--brand);font-size:13px}
-    .kpi .v{font-size:20px;font-weight:800}
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px}
-    .report{background:#fff;border-radius:12px;padding:12px;border:1px dashed #cbd5e1}
-    .proj{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin:8px 0}
-    .topbar{display:flex;gap:8px;flex-wrap:wrap}
-    .drop{border:2px dashed var(--brand);border-radius:10px;padding:12px;text-align:center;background:#f0f5ff;color:#0f172a;cursor:pointer}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Proyectos Mineros</title>
+    <!-- Chart.js for charts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <!-- XLSX for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- jsPDF and autotable for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f7fb;
+            color: #333;
+        }
+        header {
+            background: #0055A6;
+            color: white;
+            padding: 1rem 2rem;
+        }
+        h1 {
+            margin: 0;
+            font-size: 1.6rem;
+        }
+        main {
+            max-width: 1200px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        .form-section {
+            margin-bottom: 20px;
+        }
+        .form-section label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        select, button, input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        .projects-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e0e7ff;
+            padding: 10px;
+            border-radius: 6px;
+            background: #fafbff;
+        }
+        .projects-list label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .preview {
+            margin-top: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+            border-top: 1px solid #e0e7ff;
+            padding-top: 20px;
+        }
+        .download-buttons {
+            margin-top: 10px;
+            display: none;
+        }
+        .download-buttons button {
+            margin-right: 10px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: #0055A6;
+            color: white;
+            cursor: pointer;
+        }
+        .download-buttons button:hover {
+            background: #004080;
+        }
+        /* Nuevos estilos para filtros y selección de gráficos */
+        .filter-group {
+            margin-bottom: 10px;
+        }
+        .filter-group label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .filter-group select,
+        .filter-group input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        .capex-filter {
+            display: flex;
+            gap: 10px;
+        }
+        .capex-filter input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+        #apply-filters {
+            background: #f0f5ff;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            color: #0055A6;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        #apply-filters:hover {
+            background: #e0e7ff;
+        }
+        #chart-options label {
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <div style="display:flex;align-items:center;gap:10px">
-      <div style="background:#fff;border-radius:6px;padding:6px">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="#0055A6" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2l3 3-3 3-3-3 3-3zm0 7l3 3-3 3-3-3 3-3zm0 7l3 3-3 3-3-3 3-3z"/>
-        </svg>
-      </div>
-      <div>
-        <div class="title">Reporter — Proyectos Mineros</div>
-        <div style="font-size:12px;opacity:.9">Resumen, gráficos y exportaciones</div>
-      </div>
-    </div>
-    <div class="topbar">
-      <button class="btn gray" onclick="location.href='dash.html'">Volver al Dashboard</button>
-      <button class="btn purple" onclick="generateReport()">Generar Reporte</button>
-      <button class="btn green" onclick="download('pdf')">PDF</button>
-      <button class="btn primary" onclick="download('excel')">Excel</button>
-      <button class="btn green" onclick="download('word')">Word</button>
-    </div>
-  </header>
-
-  <div class="container">
-    <div class="panel">
-      <div class="drop" id="file-drop">
-        <input type="file" id="file-input" accept=".xlsx,.xls,.json" style="display:none">
-        <div><b>Cargar Excel/JSON</b></div>
-        <div class="hint">Arrastra aquí o haz clic para seleccionar</div>
-      </div>
-      <div class="hint" style="margin-top:6px">Si no cargas nada, intentaremos leer <b>LocalStorage</b> (desde admin.html) o <b>proyectos.xlsx/json</b> en la raíz del sitio.</div>
-      <h4>Proyectos</h4>
-      <div class="list" id="project-list">Cargando…</div>
-      <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
-        <label><input type="checkbox" id="chk-all" checked> Seleccionar todo</label>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div id="report-area" class="report">Genera un reporte para previsualizar aquí.</div>
-      <div class="grid2" style="margin-top:12px">
-        <div class="card">
-          <h4 style="margin:0 0 8px;color:#0055A6">Top CAPEX</h4>
-          <canvas id="chartTop"></canvas>
+    <header>
+        <h1>Reporte Ejecutivo de Proyectos</h1>
+    </header>
+    <main>
+        <section class="form-section">
+            <label for="data-source">Datos</label>
+            <input type="file" id="data-source" accept=".xlsx,.xls,.json">
+            <small>Puedes cargar un archivo Excel (.xlsx) o JSON exportado del administrador. También se intentará cargar automáticamente <em>proyectos.xlsx</em> de la raíz del servidor o desde LocalStorage.</small>
+        </section>
+        <section class="form-section">
+            <label for="report-type">Tipo de reporte</label>
+            <select id="report-type">
+                <option value="comparativo">Comparativo</option>
+                <option value="capexSector">CAPEX por Sector</option>
+                <option value="proyectosPais">Proyectos por País</option>
+                <option value="inversionEmpresa">Inversión por Compañía</option>
+            </select>
+        </section>
+        <!-- Panel de filtros para refinar los proyectos mostrados en la lista.  
+             Permite seleccionar sector, país, etapa, estado y rangos de CAPEX.  -->
+        <section class="form-section" id="filters-section">
+            <label>Filtros</label>
+            <div class="filter-group">
+                <label for="filter-sector">Sector</label>
+                <select id="filter-sector">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-pais">País</label>
+                <select id="filter-pais">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-etapa">Etapa</label>
+                <select id="filter-etapa">
+                    <option value="">Todas</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-estado">Estado</label>
+                <select id="filter-estado">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>CAPEX (US$ MM)</label>
+                <div class="capex-filter">
+                    <input type="number" id="filter-capex-min" placeholder="Mínimo">
+                    <input type="number" id="filter-capex-max" placeholder="Máximo">
+                </div>
+            </div>
+            <button type="button" id="apply-filters">Aplicar filtros</button>
+        </section>
+        <!-- Panel de selección de gráficos para personalizar el reporte.  
+             El usuario puede activar o desactivar gráficos específicos.  -->
+        <section class="form-section" id="chart-selection-section">
+            <label>Gráficos a incluir</label>
+            <div id="chart-options"></div>
+        </section>
+        <section class="form-section">
+            <label>Selecciona proyectos</label>
+            <div id="projects-list" class="projects-list"></div>
+        </section>
+        <button id="generate-btn">Generar Reporte</button>
+        <div id="report-preview" class="preview"></div>
+        <div id="download-buttons" class="download-buttons">
+            <button id="pdf-btn">PDF</button>
+            <button id="excel-btn">Excel</button>
+            <button id="word-btn">Word</button>
         </div>
-        <div class="card">
-          <h4 style="margin:0 0 8px;color:#0055A6">CAPEX por Sector</h4>
-          <canvas id="chartPie"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // ===== Datos & Normalización =====
+    </main>
+    <script>
+    // Variables globales
     let projects = [];
-    let selection = [];
+    let currentReportData = null;
 
-    const FIELD_MAP = {
-      name: ['nombre del proyecto','nombre','proyecto','project name'],
-      sector: ['sector','commodity','mineral','metal'],
-      pais: ['país','pais','country'],
-      etapa: ['etapa','fase','stage'],
-      capex: ['capex (us$ mn)','capex (us$ mm)','capex','inversion','inversión'],
-      area: ['area','área'],
-      estado: ['estado','status'],
-      productos: ['productos y servicios','productos','services','servicios'],
-      companias: ['compañías relacionadas','companias relacionadas','empresas','companies'],
-    };
-    const normalize = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').trim();
-    const findIndex = (headers, list) => {
-      for(const syn of list){
-        const i = headers.findIndex(h => normalize(h) === normalize(syn));
-        if(i !== -1) return i;
-      }
-      return -1;
-    };
-    const parseNumber = (v) => {
-      if(v==null) return 0;
-      let s = String(v).trim().replace(/\\s+/g,'');
-      if(s.includes('.') && s.includes(',')) s = s.replace(/\\./g,'').replace(/,/g,'.');
-      else if(s.includes(',')) s = s.replace(/\\./g,'').replace(/,/g,'.');
-      else s = s.replace(/,/g,'');
-      const n = parseFloat(s); return isNaN(n)?0:n;
+    // Lista de proyectos filtrados. Si está vacía, se utiliza la lista completa.
+    let filteredProjects = [];
+
+    // Configuración de gráficos disponibles y selección actual.  Se rellenará dinámicamente
+    // en renderChartOptions según el tipo de reporte y las preferencias del usuario.
+    let chartSelection = {};
+    const allCharts = {
+        sector: 'CAPEX por Sector',
+        top: 'Top Proyectos por CAPEX',
+        stacked: 'Distribución de Etapas por Sector',
+        company: 'Inversión por Compañía',
+        country: 'Proyectos por País'
     };
 
-    function rowsToProjects(rows){
-      if(!rows?.length) return [];
-      const headers = Object.keys(rows[0]);
-      const idx = {};
-      for(const k in FIELD_MAP){ idx[k] = findIndex(headers, FIELD_MAP[k]); }
-      return rows.map(r => ({
-        name: (r[headers[idx.name]]||'').toString() || 'Sin nombre',
-        sector: (r[headers[idx.sector]]||'').toString() || 'Desconocido',
-        pais: (r[headers[idx.pais]]||'').toString() || 'Desconocido',
-        etapa: (r[headers[idx.etapa]]||'').toString() || 'Desconocido',
-        capex: parseNumber(r[headers[idx.capex]]||0),
-        area: idx.area>=0 ? (r[headers[idx.area]]||'') : '',
-        estado: idx.estado>=0 ? (r[headers[idx.estado]]||'') : '',
-        productos: idx.productos>=0 ? (r[headers[idx.productos]]||'') : '',
-        companias: (()=>{
-          const v = idx.companias>=0 ? r[headers[idx.companias]] : '';
-          if(Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean);
-          return String(v||'').split(/[,;|]+/).map(x=>x.trim()).filter(Boolean);
-        })()
-      }));
-    }
-
-    async function tryLoadRoot(){
-      try{
-        const resX = await fetch('proyectos.xlsx', {cache:'no-store'});
-        if(resX.ok){
-          const buf = await resX.arrayBuffer();
-          const wb = XLSX.read(buf,{type:'array'});
-          const sheet = wb.Sheets[wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
-          return rowsToProjects(rows);
+    // Convierte cadenas separadas por comas o arrays en arrays limpios
+    function toArray(val) {
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'string' && val.trim()) {
+            return val.split(',').map(s => s.trim()).filter(Boolean);
         }
-      }catch(e){}
-      try{
-        const resJ = await fetch('proyectos.json',{cache:'no-store'});
-        if(resJ.ok){
-          const j = await resJ.json();
-          const rows = j.rows || j;
-          return rowsToProjects(rows);
-        }
-      }catch(e){}
-      return [];
+        return [];
     }
 
-    async function loadData(){
-      // 1) LocalStorage (admin.html); 2) raíz del sitio
-      const raw = localStorage.getItem('proyectosData');
-      if(raw){
-        try{
-          const obj = JSON.parse(raw);
-          projects = rowsToProjects(obj.rows || []);
-        }catch(e){}
-      }
-      if(!projects.length){
-        projects = await tryLoadRoot();
-      }
-      selection = [...projects];
-      renderList();
-      renderCharts();
-      renderReport(); // preview inicial
+    // Carga proyectos desde LocalStorage o desde archivos remotos
+    async function loadInitialData() {
+        try {
+            // Intentar cargar desde localStorage (exportado por admin)
+            const stored = localStorage.getItem('proyectosMineros') || localStorage.getItem('projectsData');
+            if (stored) {
+                projects = JSON.parse(stored);
+                renderProjectsList();
+                // Poblamos los filtros con los valores cargados
+                populateFilters();
+                return;
+            }
+        } catch (e) {}
+        // Intentar cargar proyectos.xlsx
+        try {
+            const res = await fetch('proyectos.xlsx');
+            if (res.ok) {
+                const arrayBuffer = await res.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+                projects = jsonData.map(row => normalizeRow(row));
+                renderProjectsList();
+                populateFilters();
+                return;
+            }
+        } catch (e) { console.error('No se pudo cargar proyectos.xlsx', e); }
+        // Intentar proyectos.json
+        try {
+            const resJ = await fetch('proyectos.json');
+            if (resJ.ok) {
+                const data = await resJ.json();
+                projects = data.map(row => normalizeRow(row));
+                renderProjectsList();
+                populateFilters();
+                return;
+            }
+        } catch (e) { console.error('No se pudo cargar proyectos.json', e); }
+        // Si falla todo, cargar ejemplo
+        projects = [
+            { name: 'Proyecto Cobre Andino', sector: 'Cobre', area: 'Norte', pais: 'Chile', etapa: 'Exploración', capex: 1500, companias: ['Minera Andes SA','Cobre Global'], productos: 'Cobre, Oro', estado: 'En evaluación' },
+            { name: 'Mina de Oro Dorada', sector: 'Oro', area: 'Centro', pais: 'Perú', etapa: 'Producción', capex: 3200, companias: ['OroPerú SAC','GoldCorp'], productos: 'Oro, Plata', estado: 'Producción' },
+            { name: 'Hierro del Sur', sector: 'Hierro', area: 'Sur', pais: 'Brasil', etapa: 'Construcción', capex: 4500, companias: ['Vale SA','Minera Brasileira'], productos: 'Hierro', estado: 'Construcción' },
+            { name: 'Proyecto Plata Norte', sector: 'Plata', area: 'Norte', pais: 'México', etapa: 'Factibilidad', capex: 2800, companias: ['Peñoles','Silver Resources'], productos: 'Plata, Zinc', estado: 'En estudio' }
+        ];
+        renderProjectsList();
+        populateFilters();
     }
 
-    // ===== UI: Lista y selección =====
-    function renderList(){
-      const list = document.getElementById('project-list');
-      if(!projects.length){ list.textContent = 'Sin datos'; return; }
-      list.innerHTML = '';
-      projects.forEach((p,i)=>{
-        const row = document.createElement('div');
-        row.className = 'row';
-        row.innerHTML = `<input type="checkbox" class="chk" data-i="${i}" checked> <label>${p.name}</label>`;
-        list.appendChild(row);
-      });
-      document.getElementById('chk-all').onchange = (e)=>{
-        const on = e.target.checked;
-        list.querySelectorAll('.chk').forEach(c => { c.checked = on; });
-        selection = on ? [...projects] : [];
-        renderCharts(); renderReport();
-      };
-      list.querySelectorAll('.chk').forEach(c=>{
-        c.onchange = ()=>{
-          const idx = +c.dataset.i;
-          if(c.checked){
-            if(!selection.includes(projects[idx])) selection.push(projects[idx]);
-          }else{
-            selection = selection.filter(p => p!==projects[idx]);
-          }
-          renderCharts(); renderReport();
+    // Normaliza filas de un Excel/JSON a los campos usados
+    function normalizeRow(row) {
+        return {
+            name: row.name || row.Nombre || row['Nombre del proyecto'] || row.Project || '',
+            sector: row.sector || row.Sector || '',
+            area: row.area || row.Área || row.Area || '',
+            pais: row.pais || row.País || row.Country || '',
+            etapa: row.etapa || row.Etapa || '',
+            estado: row.estado || row.Estado || '',
+            capex: parseFloat(row.capex || row['Capex (US$ mn)'] || row['CAPEX'] || 0),
+            companias: toArray(row.companias || row['Compañías'] || row['Compañías relacionadas'] || row.Empresas || row.Company || ''),
+            productos: toArray(row.productos || row.Productos || row['Productos y Servicios'] || '')
         };
-      });
     }
 
-    // ===== Gráficos =====
-    function destroyChart(ref){ if(ref && ref.destroy) try{ ref.destroy(); }catch(e){} }
-    let chartTop = null, chartPie = null;
-
-    function renderCharts(){
-      destroyChart(chartTop); destroyChart(chartPie);
-      const top = [...selection].sort((a,b)=>b.capex-a.capex).slice(0,7);
-      const ctx1 = document.getElementById('chartTop').getContext('2d');
-      chartTop = new Chart(ctx1, { type:'bar', data:{
-        labels: top.map(p=>p.name),
-        datasets: [{ label:'CAPEX (US$ MM)', data: top.map(p=>p.capex) }]
-      }, options:{ responsive:true, plugins:{ legend:{display:false} } } });
-
-      const capexSector = {};
-      selection.forEach(p => capexSector[p.sector] = (capexSector[p.sector]||0)+(p.capex||0));
-      const ctx2 = document.getElementById('chartPie').getContext('2d');
-      chartPie = new Chart(ctx2, { type:'pie', data:{
-        labels: Object.keys(capexSector),
-        datasets: [{ data: Object.values(capexSector) }]
-      } });
-    }
-
-    // ===== Reporte (HTML lindo) =====
-    let currentHTML = '';
-    function number(n){ return (n||0).toLocaleString('es-CL'); }
-
-    function kpi(title, value){
-      return `<div class="kpi"><div class="t">${title}</div><div class="v">${value}</div></div>`;
-    }
-
-    function cardProyecto(p, i){
-      return `
-        <div class="proj">
-          <div style="font-weight:800;color:#003366">${i+1}. ${p.name}</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:6px">
-            <div><b>Sector:</b> ${p.sector||'-'}</div>
-            <div><b>País:</b> ${p.pais||'-'}</div>
-            <div><b>Etapa:</b> ${p.etapa||'-'}</div>
-            <div><b>Estado:</b> ${p.estado||'-'}</div>
-            <div><b>CAPEX (US$ MM):</b> ${number(p.capex)}</div>
-            <div style="grid-column:1/-1"><b>Productos y Servicios:</b> ${p.productos||'-'}</div>
-            <div style="grid-column:1/-1"><b>Compañías:</b> ${(p.companias||[]).join(', ')}</div>
-          </div>
-        </div>
-      `;
-    }
-
-    function makeChartImage(type, labels, data){
-      const can = document.createElement('canvas'); can.width=900; can.height=420;
-      const ctx = can.getContext('2d');
-      new Chart(ctx, {type, data:{labels, datasets:[{data, label:''}]}, options:{responsive:false, plugins:{legend:{display:false}}}});
-      return can.toDataURL('image/png');
-    }
-
-    function renderReport(){
-      if(!selection.length){
-        document.getElementById('report-area').textContent = 'Selecciona al menos un proyecto.'; return;
-      }
-      const total = selection.reduce((s,p)=>s+(p.capex||0),0);
-      const sectores = [...new Set(selection.map(p=>p.sector||'-'))];
-      const paises = [...new Set(selection.map(p=>p.pais||'-'))];
-
-      // Gráficos embebidos
-      const top = [...selection].sort((a,b)=>b.capex-a.capex).slice(0,5);
-      const imgTop = makeChartImage('bar', top.map(p=>p.name), top.map(p=>p.capex));
-      const agg = selection.reduce((acc,p)=>{ acc[p.sector]=(acc[p.sector]||0)+(p.capex||0); return acc; },{});
-      const imgPie = makeChartImage('pie', Object.keys(agg), Object.values(agg));
-
-      let html = `
-        <div style="font-family:Inter,system-ui;line-height:1.5;color:#0f172a">
-          <h2 style="margin:0 0 6px;color:#0055A6">Reporte Ejecutivo</h2>
-          <div class="kpis">
-            ${kpi('Proyectos', selection.length)}
-            ${kpi('CAPEX total (US$ MM)', number(Math.round(total)))}
-            ${kpi('Sectores', sectores.length)}
-            ${kpi('Países', paises.length)}
-          </div>
-          <div class="grid2" style="margin-top:8px">
-            <div class="card"><img src="${imgTop}" style="width:100%;border:1px solid #e5e7eb;border-radius:8px"></div>
-            <div class="card"><img src="${imgPie}" style="width:100%;border:1px solid #e5e7eb;border-radius:8px"></div>
-          </div>
-          <h3 style="color:#0055A6;margin:10px 0 4px">Detalle</h3>
-          ${selection.map((p,i)=>cardProyecto(p,i)).join('')}
-        </div>`;
-      currentHTML = html;
-      document.getElementById('report-area').innerHTML = html;
-    }
-
-    // ===== Exportaciones =====
-    function htmlToDocBlob(html){
-      return new Blob([`<!doctype html><html><head><meta charset="utf-8"></head><body>${html}</body></html>`],{type:'application/msword'});
-    }
-    window.download = function(fmt){
-      if(!selection.length){ alert('Primero genera un reporte'); return; }
-      if(fmt==='pdf'){
-        const { jsPDF } = window.jspdf || {};
-        if(!jsPDF){ alert('jsPDF no disponible'); return; }
-        const doc = new jsPDF({unit:'pt',format:'a4'});
-        doc.html(new DOMParser().parseFromString(currentHTML,'text/html').body, {
-          callback: (d)=> d.save('reporte.pdf'),
-          margin:[20,20,20,20], x:20, y:20, width:555, autoPaging:'text'
+    /*
+     * Pobla los selectores de filtros con los valores únicos disponibles en la lista
+     * de proyectos.  Este método se invoca después de cargar los datos para que
+     * el usuario pueda filtrar por sector, país, etapa, estado y rangos de CAPEX.
+     */
+    function populateFilters() {
+        const sectors = new Set();
+        const countries = new Set();
+        const etapas = new Set();
+        const estados = new Set();
+        projects.forEach(p => {
+            if (p.sector) sectors.add(p.sector);
+            if (p.pais) countries.add(p.pais);
+            if (p.etapa) etapas.add(p.etapa);
+            if (p.estado) estados.add(p.estado);
         });
-      }else if(fmt==='excel'){
-        const wb = XLSX.utils.book_new();
-        const rows = selection.map(p=>({
-          'Nombre': p.name, 'Sector': p.sector, 'País': p.pais, 'Etapa': p.etapa, 'Estado': p.estado,
-          'CAPEX (US$ MM)': p.capex, 'Área': p.area, 'Productos y Servicios': p.productos, 'Compañías': (p.companias||[]).join(', ')
-        }));
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Detalle');
-        XLSX.writeFile(wb, 'reporte.xlsx');
-      }else if(fmt==='word'){
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(htmlToDocBlob(currentHTML));
-        a.download = 'reporte.doc';
-        a.click();
-        URL.revokeObjectURL(a.href);
-      }
-    };
-
-    window.generateReport = renderReport;
-
-    // ===== Carga de datos (drag&drop o input) =====
-    const drop = document.getElementById('file-drop');
-    const input = document.getElementById('file-input');
-    drop.addEventListener('click', ()=> input.click());
-    drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.style.background='#e2e8f0'; });
-    drop.addEventListener('dragleave', e=>{ drop.style.background='#f0f5ff'; });
-    drop.addEventListener('drop', async e=>{
-      e.preventDefault(); drop.style.background='#f0f5ff';
-      const f = e.dataTransfer.files[0]; if(!f) return;
-      await readFile(f);
-    });
-    input.addEventListener('change', async e=>{
-      const f = e.target.files[0]; if(!f) return; await readFile(f);
-    });
-    async function readFile(f){
-      const ext = f.name.split('.').pop().toLowerCase();
-      if(ext==='json'){
-        const txt = await f.text();
-        const obj = JSON.parse(txt);
-        projects = rowsToProjects(obj.rows || obj);
-      }else{
-        const buf = await f.arrayBuffer();
-        const wb = XLSX.read(buf,{type:'array'});
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
-        projects = rowsToProjects(rows);
-      }
-      selection = [...projects];
-      renderList(); renderCharts(); renderReport();
+        const setSelect = (id, values) => {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            const firstOption = sel.querySelector('option');
+            const firstText = firstOption ? firstOption.textContent : 'Todos';
+            sel.innerHTML = '';
+            const baseOpt = document.createElement('option');
+            baseOpt.value = '';
+            baseOpt.textContent = firstText;
+            sel.appendChild(baseOpt);
+            Array.from(values).sort((a,b) => a.localeCompare(b)).forEach(val => {
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = val;
+                sel.appendChild(opt);
+            });
+        };
+        setSelect('filter-sector', sectors);
+        setSelect('filter-pais', countries);
+        setSelect('filter-etapa', etapas);
+        setSelect('filter-estado', estados);
     }
 
-    // Init
-    loadData();
-  </script>
+    /*
+     * Filtra la lista de proyectos según los valores seleccionados en el panel
+     * de filtros.  Si no se aplican filtros, la lista completa se utiliza.
+     */
+    function applyFilters() {
+        const sSec = document.getElementById('filter-sector').value;
+        const sPais = document.getElementById('filter-pais').value;
+        const sEtapa = document.getElementById('filter-etapa').value;
+        const sEstado = document.getElementById('filter-estado').value;
+        const minCapex = parseFloat(document.getElementById('filter-capex-min').value);
+        const maxCapex = parseFloat(document.getElementById('filter-capex-max').value);
+        filteredProjects = projects.filter(p => {
+            if (sSec && p.sector !== sSec) return false;
+            if (sPais && p.pais !== sPais) return false;
+            if (sEtapa && p.etapa !== sEtapa) return false;
+            if (sEstado && p.estado !== sEstado) return false;
+            if (!isNaN(minCapex) && p.capex < minCapex) return false;
+            if (!isNaN(maxCapex) && p.capex > maxCapex) return false;
+            return true;
+        });
+        renderProjectsList();
+    }
+
+    /*
+     * Construye la lista de opciones de gráficos en función del tipo de reporte
+     * seleccionado y establece la selección por defecto para cada tipo.  El
+     * usuario puede activar o desactivar cada gráfico individualmente.
+     */
+    function renderChartOptions(reportType) {
+        const container = document.getElementById('chart-options');
+        if (!container) return;
+        container.innerHTML = '';
+        let defaults = [];
+        if (reportType === 'comparativo') {
+            defaults = Object.keys(allCharts);
+        } else if (reportType === 'capexSector') {
+            defaults = ['sector'];
+        } else if (reportType === 'proyectosPais') {
+            defaults = ['country'];
+        } else if (reportType === 'inversionEmpresa') {
+            defaults = ['company'];
+        }
+        chartSelection = {};
+        Object.keys(allCharts).forEach(key => {
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.id = 'chart-' + key;
+            cb.dataset.chart = key;
+            cb.checked = defaults.includes(key);
+            chartSelection[key] = cb.checked;
+            cb.addEventListener('change', function() {
+                chartSelection[this.dataset.chart] = this.checked;
+            });
+            const label = document.createElement('label');
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(' ' + allCharts[key]));
+            container.appendChild(label);
+        });
+    }
+
+    // Renderiza la lista de proyectos como checkboxes
+    function renderProjectsList() {
+        const list = document.getElementById('projects-list');
+        list.innerHTML = '';
+        // Elegimos la fuente de datos: si existen proyectos filtrados, usamos esos; de lo contrario,
+        // utilizamos la lista completa cargada.  Esto permite mantener la funcionalidad de filtros.
+        const source = (filteredProjects && filteredProjects.length) ? filteredProjects : projects;
+        if (!source || !source.length) {
+            list.innerHTML = '<em>No hay proyectos disponibles</em>';
+            return;
+        }
+        // Ordenar por nombre para una presentación más ordenada
+        const sorted = [...source].sort((a,b) => a.name.localeCompare(b.name));
+        sorted.forEach((p, idx) => {
+            const id = 'proj-' + idx;
+            const label = document.createElement('label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = p.name;
+            checkbox.id = id;
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(' ' + p.name));
+            list.appendChild(label);
+        });
+    }
+
+    // Función para generar la imagen de un gráfico con Chart.js
+    async function generateChartImage(config) {
+        return new Promise(resolve => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 800;
+            canvas.height = 400;
+            const ctx = canvas.getContext('2d');
+            let chart = null;
+            try {
+                chart = new Chart(ctx, config);
+            } catch (err) {
+                console.error('Error creando gráfico', err);
+                resolve(null);
+                return;
+            }
+            // Esperar un breve momento para que Chart.js dibuje el gráfico correctamente
+            setTimeout(() => {
+                try {
+                    if (chart && typeof chart.update === 'function') {
+                        chart.update();
+                    }
+                    // Obtener la imagen desde el canvas asociado al gráfico
+                    const img = chart && chart.canvas ? chart.canvas.toDataURL('image/png') : canvas.toDataURL('image/png');
+                    chart && chart.destroy();
+                    resolve(img);
+                } catch (e) {
+                    console.error('Error generando imagen de gráfico', e);
+                    chart && chart.destroy();
+                    resolve(null);
+                }
+            }, 300);
+        });
+    }
+
+    // Genera el reporte a partir de los proyectos seleccionados y tipo
+    async function generateReport() {
+        const reportType = document.getElementById('report-type').value;
+        const selectedNames = [];
+        document.querySelectorAll('#projects-list input[type="checkbox"]:checked').forEach(cb => selectedNames.push(cb.value));
+        if (!selectedNames.length) {
+            alert('Selecciona al menos un proyecto');
+            return;
+        }
+        // Determinamos la fuente base de proyectos (filtrados o completos) para la selección
+        const source = (filteredProjects && filteredProjects.length) ? filteredProjects : projects;
+        const selectedProjects = source.filter(p => selectedNames.includes(p.name));
+        // Métricas
+        const totalCapex = selectedProjects.reduce((sum,p)=> sum + (p.capex || 0), 0);
+        const avgCapex = selectedProjects.length ? totalCapex / selectedProjects.length : 0;
+        const sectores = new Set();
+        const paises = new Set();
+        const etapas = new Set();
+        const estados = new Set();
+        const empresas = new Set();
+        selectedProjects.forEach(p => {
+            if (p.sector) sectores.add(p.sector);
+            if (p.pais) paises.add(p.pais);
+            if (p.etapa) etapas.add(p.etapa);
+            if (p.estado) estados.add(p.estado);
+            toArray(p.companias).forEach(c => empresas.add(c));
+        });
+        let summaryHtml = '';
+        summaryHtml += `<p><strong>Proyectos seleccionados:</strong> ${selectedProjects.length}</p>`;
+        summaryHtml += `<p><strong>CAPEX total:</strong> $${totalCapex.toLocaleString('es-ES')} MM</p>`;
+        summaryHtml += `<p><strong>CAPEX promedio:</strong> $${avgCapex.toLocaleString('es-ES')} MM</p>`;
+        summaryHtml += `<p><strong>Sectores:</strong> ${Array.from(sectores).join(', ') || '-'}</p>`;
+        summaryHtml += `<p><strong>Países:</strong> ${Array.from(paises).join(', ') || '-'}</p>`;
+        summaryHtml += `<p><strong>Etapas:</strong> ${Array.from(etapas).join(', ') || '-'}</p>`;
+        summaryHtml += `<p><strong>Estados:</strong> ${Array.from(estados).join(', ') || '-'}</p>`;
+        summaryHtml += `<p><strong>Empresas involucradas:</strong> ${Array.from(empresas).join(', ') || '-'}</p>`;
+        // Datos para gráficos
+        const palette = ['#0055A6','#E60028','#003366','#9b59b6','#2ecc71','#1abc9c','#34495e','#e67e22','#16a085','#27ae60'];
+        const sectorCapex = {};
+        const sectorEtapaCounts = {};
+        const companyCapex = {};
+        const countryCounts = {};
+        selectedProjects.forEach(p => {
+            const capex = p.capex || 0;
+            sectorCapex[p.sector] = (sectorCapex[p.sector] || 0) + capex;
+            if (!sectorEtapaCounts[p.sector]) sectorEtapaCounts[p.sector] = {};
+            sectorEtapaCounts[p.sector][p.etapa] = (sectorEtapaCounts[p.sector][p.etapa] || 0) + 1;
+            toArray(p.companias).forEach(c => {
+                companyCapex[c] = (companyCapex[c] || 0) + capex;
+            });
+            countryCounts[p.pais] = (countryCounts[p.pais] || 0) + 1;
+        });
+        const sectorLabels = Object.keys(sectorCapex);
+        const sectorValues = Object.values(sectorCapex);
+        const topList = [...selectedProjects].sort((a,b)=> (b.capex||0) - (a.capex||0)).slice(0,5);
+        const topLabels = topList.map(p=>p.name);
+        const topValues = topList.map(p=>p.capex||0);
+        const etapaLabels = Array.from(new Set(selectedProjects.map(p=>p.etapa)));
+        const stackedLabels = Object.keys(sectorEtapaCounts);
+        const stackedDatasets = etapaLabels.map(et => ({ label: et, backgroundColor: palette[etapaLabels.indexOf(et)%palette.length], data: stackedLabels.map(se => sectorEtapaCounts[se][et] || 0) }));
+        const companyEntries = Object.entries(companyCapex).sort((a,b)=> b[1]-a[1]).slice(0,5);
+        const companyLabels = companyEntries.map(e=>e[0]);
+        const companyValues = companyEntries.map(e=>e[1]);
+        const countryLabels = Object.keys(countryCounts);
+        const countryValues = Object.values(countryCounts);
+        // Generar gráficos
+        const charts = {};
+        // Generamos solamente los gráficos seleccionados por el usuario.  Cada gráfico se
+        // construye con su propia configuración si está marcado en chartSelection.
+        if (chartSelection.sector) {
+            const configSector = {
+                type: 'pie',
+                data: { labels: sectorLabels, datasets: [{ data: sectorValues, backgroundColor: sectorLabels.map((_,i) => palette[i % palette.length]) }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+            };
+            charts.sector = await generateChartImage(configSector);
+        }
+        if (chartSelection.top) {
+            const configTop = {
+                type: 'bar',
+                data: { labels: topLabels, datasets: [{ label: 'CAPEX (US$ MM)', data: topValues, backgroundColor: topLabels.map((_,i) => palette[i % palette.length]) }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, title: { display: true, text: 'MM USD' } } }, plugins: { legend: { display: false } } }
+            };
+            charts.top = await generateChartImage(configTop);
+        }
+        if (chartSelection.stacked) {
+            const configStacked = {
+                type: 'bar',
+                data: { labels: stackedLabels, datasets: stackedDatasets },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'N° Proyectos' } } }, plugins: { legend: { position: 'top' } } }
+            };
+            charts.stacked = await generateChartImage(configStacked);
+        }
+        if (chartSelection.company) {
+            const configCompany = {
+                type: 'bar',
+                data: { labels: companyLabels, datasets: [{ label: 'Inversión (US$ MM)', data: companyValues, backgroundColor: companyLabels.map((_,i) => palette[i % palette.length]) }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, title: { display: true, text: 'MM USD' } }, y: { ticks: { autoSkip: false } } }, plugins: { legend: { display: false } } }
+            };
+            charts.company = await generateChartImage(configCompany);
+        }
+        if (chartSelection.country) {
+            const configCountry = {
+                type: 'bar',
+                data: { labels: countryLabels, datasets: [{ label: 'Proyectos', data: countryValues, backgroundColor: countryLabels.map((_,i) => palette[i % palette.length]) }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, title: { display: true, text: 'N° Proyectos' } }, y: { ticks: { autoSkip: false } } }, plugins: { legend: { display: false } } }
+            };
+            charts.country = await generateChartImage(configCountry);
+        }
+        // Detalle por proyecto
+        let detailsHtml = '';
+        selectedProjects.forEach(p => {
+            detailsHtml += `<h4 style="margin-top:15px; color:#0055A6;">${p.name}</h4>`;
+            detailsHtml += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">';
+            const rows = [
+                { label:'Sector', value:p.sector || '-' },
+                { label:'Área', value:p.area || '-' },
+                { label:'País', value:p.pais || '-' },
+                { label:'Etapa', value:p.etapa || '-' },
+                { label:'Estado', value:p.estado || '-' },
+                { label:'CAPEX (US$ MM)', value:p.capex || '-' },
+                { label:'Productos', value: toArray(p.productos).join(', ') || '-' },
+                { label:'Empresas', value: toArray(p.companias).join(', ') || '-' }
+            ];
+            rows.forEach(r => {
+                detailsHtml += `<tr><td style="padding:4px 8px; font-weight:bold; border:1px solid #e0e7ff; background:#f8fafd;">${r.label}</td><td style="padding:4px 8px; border:1px solid #e0e7ff;">${r.value}</td></tr>`;
+            });
+            detailsHtml += '</table>';
+        });
+        // Construir vista previa según la selección de gráficos
+        let previewHtml = '';
+        previewHtml += `<div>${summaryHtml}</div>`;
+        // Orden predeterminado de gráficos
+        if (chartSelection.sector && charts.sector) {
+            previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">CAPEX por Sector</h4>';
+            previewHtml += `<img src="${charts.sector}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+        }
+        if (chartSelection.top && charts.top) {
+            previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Top Proyectos por CAPEX</h4>';
+            previewHtml += `<img src="${charts.top}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+        }
+        if (chartSelection.stacked && charts.stacked) {
+            previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Distribución de Etapas por Sector</h4>';
+            previewHtml += `<img src="${charts.stacked}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+        }
+        if (chartSelection.company && charts.company) {
+            previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Inversión por Compañía</h4>';
+            previewHtml += `<img src="${charts.company}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+        }
+        if (chartSelection.country && charts.country) {
+            previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Proyectos por País</h4>';
+            previewHtml += `<img src="${charts.country}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+        }
+        previewHtml += `<div>${detailsHtml}</div>`;
+        document.getElementById('report-preview').innerHTML = previewHtml;
+        // Guardar datos para exportación
+        currentReportData = { selectedProjects, reportType, charts, summaryHtml, detailsHtml, totalCapex, avgCapex, selectedCharts: Object.assign({}, chartSelection) };
+        document.getElementById('download-buttons').style.display = 'block';
+    }
+
+    // Exporta el reporte como PDF/Excel/Word
+    function exportReport(format) {
+        if (!currentReportData) { alert('Genera un reporte primero'); return; }
+        const data = currentReportData;
+        if (format === 'pdf') {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'pt', 'a4');
+            let y = 40;
+            doc.setFontSize(16);
+            doc.text('Reporte de Proyectos Mineros', 40, y);
+            y += 18;
+            doc.setFontSize(10);
+            doc.text(`Fecha: ${new Date().toLocaleDateString('es-CL')}`, 40, y);
+            y += 20;
+            const tmpDiv = document.createElement('div');
+            tmpDiv.innerHTML = data.summaryHtml;
+            const summaryText = tmpDiv.textContent || '';
+            const lines = doc.splitTextToSize(summaryText, 520);
+            doc.setFontSize(10);
+            doc.text(lines, 40, y);
+            y += lines.length * 12 + 10;
+            const insert = (img, title) => {
+                if (!img) return;
+                if (y + 310 > 800) { doc.addPage(); y = 40; }
+                doc.setFontSize(12);
+                doc.text(title, 40, y);
+                y += 14;
+                doc.addImage(img, 'PNG', 40, y, 520, 260);
+                y += 270;
+            };
+            // Insertar sólo los gráficos seleccionados
+            const selCharts = data.selectedCharts || {};
+            if (selCharts.sector) {
+                insert(data.charts.sector, 'CAPEX por Sector');
+            }
+            if (selCharts.top) {
+                insert(data.charts.top, 'Top Proyectos por CAPEX');
+            }
+            if (selCharts.stacked) {
+                insert(data.charts.stacked, 'Distribución de Etapas por Sector');
+            }
+            if (selCharts.company) {
+                insert(data.charts.company, 'Inversión por Compañía');
+            }
+            if (selCharts.country) {
+                insert(data.charts.country, 'Proyectos por País');
+            }
+            // Tabla de detalles
+            const tableBody = [];
+            data.selectedProjects.forEach(p => {
+                tableBody.push([
+                    p.name,
+                    p.sector || '-',
+                    p.pais || '-',
+                    p.etapa || '-',
+                    p.capex || '-',
+                    p.estado || '-',
+                    toArray(p.productos).join(', ') || '-',
+                    toArray(p.companias).join(', ') || '-'
+                ]);
+            });
+            if (y + 20 > 700) { doc.addPage(); y = 40; }
+            doc.autoTable({
+                head: [['Nombre','Sector','País','Etapa','CAPEX','Estado','Productos','Empresas']],
+                body: tableBody,
+                startY: y,
+                margin: { left: 40 },
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [0,85,166], textColor: [255,255,255] }
+            });
+            doc.save('reporte_proyectos.pdf');
+        } else if (format === 'excel') {
+            const wb = XLSX.utils.book_new();
+            const summarySheet = [['Métrica','Valor']];
+            summarySheet.push(['Proyectos seleccionados', data.selectedProjects.length]);
+            summarySheet.push(['CAPEX total (US$ MM)', data.totalCapex]);
+            summarySheet.push(['CAPEX promedio (US$ MM)', data.avgCapex]);
+            summarySheet.push(['Sectores', Array.from(new Set(data.selectedProjects.map(p => p.sector))).join(', ') || '-']);
+            summarySheet.push(['Países', Array.from(new Set(data.selectedProjects.map(p => p.pais))).join(', ') || '-']);
+            summarySheet.push(['Etapas', Array.from(new Set(data.selectedProjects.map(p => p.etapa))).join(', ') || '-']);
+            summarySheet.push(['Estados', Array.from(new Set(data.selectedProjects.map(p => p.estado))).join(', ') || '-']);
+            summarySheet.push(['Empresas', Array.from(new Set([].concat(...data.selectedProjects.map(p => toArray(p.companias))))).join(', ') || '-']);
+            const wsSummary = XLSX.utils.aoa_to_sheet(summarySheet);
+            XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen');
+            const detailRows = [['Nombre','Sector','País','Etapa','CAPEX (US$ MM)','Estado','Productos','Empresas']];
+            data.selectedProjects.forEach(p => {
+                detailRows.push([
+                    p.name,
+                    p.sector || '-',
+                    p.pais || '-',
+                    p.etapa || '-',
+                    p.capex || '-',
+                    p.estado || '-',
+                    toArray(p.productos).join(', ') || '-',
+                    toArray(p.companias).join(', ') || '-'
+                ]);
+            });
+            const wsDetail = XLSX.utils.aoa_to_sheet(detailRows);
+            XLSX.utils.book_append_sheet(wb, wsDetail, 'Detalles');
+            XLSX.writeFile(wb, 'reporte_proyectos.xlsx');
+        } else if (format === 'word') {
+            const blob = new Blob([
+                `<!doctype html><html><head><meta charset="utf-8"></head><body>${data.summaryHtml}${document.getElementById('report-preview').innerHTML}</body></html>`
+            ], { type:'application/msword' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'reporte_proyectos.doc';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+    }
+
+    // Manejo de archivos cargados por el usuario
+    document.getElementById('data-source').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext === 'json') {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            projects = data.map(row => normalizeRow(row));
+            renderProjectsList();
+            populateFilters();
+        } else if (ext === 'xlsx' || ext === 'xls') {
+            const arrayBuffer = await file.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+            projects = jsonData.map(row => normalizeRow(row));
+            renderProjectsList();
+            populateFilters();
+        } else {
+            alert('Formato no soportado. Carga un .xlsx o .json');
+        }
+    });
+
+    document.getElementById('generate-btn').addEventListener('click', generateReport);
+    document.getElementById('pdf-btn').addEventListener('click', () => exportReport('pdf'));
+    document.getElementById('excel-btn').addEventListener('click', () => exportReport('excel'));
+    document.getElementById('word-btn').addEventListener('click', () => exportReport('word'));
+
+    // Aplicar filtros cuando el usuario lo solicite
+    const applyBtn = document.getElementById('apply-filters');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', applyFilters);
+    }
+
+    // Actualizar opciones de gráficos cuando cambia el tipo de reporte
+    const reportTypeSelect = document.getElementById('report-type');
+    if (reportTypeSelect) {
+        reportTypeSelect.addEventListener('change', (e) => {
+            renderChartOptions(e.target.value);
+        });
+    }
+
+    // Cargar datos al iniciar
+    loadInitialData();
+    // Poblamos filtros y opciones de gráficos con la selección inicial
+    document.addEventListener('DOMContentLoaded', () => {
+        // Solo configuramos las opciones de gráficos aquí; los filtros se generan
+        // cuando los datos están disponibles en loadInitialData().
+        renderChartOptions(document.getElementById('report-type').value);
+    });
+    </script>
 </body>
 </html>

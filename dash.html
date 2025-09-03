@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -234,6 +235,12 @@
             height: 100%;
         }
         .map-container {
+            /* El contenedor del mapa se amplía para ocupar aproximadamente dos tercios de la
+               altura de la ventana, de modo que el usuario disponga de mayor espacio
+               vertical para visualizar los marcadores y la capa de calor.  Antes era
+               400px de altura con un máximo del 60 % de la altura de la pantalla; ahora
+               aumentamos la altura base y el máximo para que el mapa crezca hasta
+               alrededor del 65 % de la altura disponible. */
             background: white;
             border-radius: 12px;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
@@ -241,8 +248,14 @@
             position: relative;
             display: flex;
             flex-direction: column;
-            height: 400px;
-            max-height: 60vh;
+            /* Ajustamos la altura del contenedor del mapa para ocupar
+               aproximadamente dos tercios de la ventana (alrededor de
+               66 % de la altura).  Esto ofrece un área de mapa más
+               generosa y permite aprovechar el espacio vertical
+               liberado por las tarjetas colapsables. */
+            height: 66vh;
+            max-height: 66vh;
+            min-height: 400px;
         }
         .map-header {
             padding: 15px 20px;
@@ -2351,25 +2364,54 @@ let currentModalKey = null;
         // Recibe la configuración de Chart.js y devuelve una promesa que se
         // resuelve con el PNG codificado en Base64.
         async function generateChartImage(config) {
+            /* Genera una imagen a partir de un gráfico de Chart.js.  En versiones
+               recientes de Chart.js el método toBase64Image puede no estar
+               disponible, por lo que utilizamos directamente toDataURL del
+               lienzo. Además, destruimos siempre la instancia para liberar
+               memoria.  Si ocurre algún error se resuelve con null para
+               permitir que el reporte siga generándose sin el gráfico. */
             return new Promise(resolve => {
                 const canvas = document.createElement('canvas');
                 canvas.width = 800;
                 canvas.height = 400;
                 const ctx = canvas.getContext('2d');
-                const chart = new Chart(ctx, config);
-                // Esperar un corto periodo de tiempo para que Chart.js renderice
+                let chart = null;
+                try {
+                    chart = new Chart(ctx, config);
+                } catch (err) {
+                    console.error('Error al crear gráfico', err);
+                    resolve(null);
+                    return;
+                }
+                // Esperar un breve momento para que el gráfico se dibuje
                 setTimeout(() => {
                     try {
-                        const img = chart.toBase64Image();
-                        chart.destroy();
+                        const img = canvas.toDataURL('image/png');
+                        chart && chart.destroy();
                         resolve(img);
                     } catch (e) {
-                        // En caso de error, resolver con null para que no bloquee el resto
-                        chart.destroy();
+                        console.error('Error al generar imagen de gráfico', e);
+                        chart && chart.destroy();
                         resolve(null);
                     }
-                }, 300);
+                }, 200);
             });
+        }
+
+        // Función auxiliar para convertir cualquier campo que pueda ser un
+        // arreglo o una cadena separada por comas en un arreglo de valores
+        // limpias. Si el valor es un array se devuelve tal cual; si es una
+        // cadena se separa por comas y se recortan los espacios; en caso
+        // contrario se devuelve un array vacío. Esto se usa para evitar
+        // errores al iterar o aplicar join sobre campos que pueden venir
+        // como cadenas en los datos de entrada (por ejemplo, productos y
+        // compañías).
+        function toArray(val) {
+            if (Array.isArray(val)) return val;
+            if (typeof val === 'string' && val.trim()) {
+                return val.split(',').map(s => s.trim()).filter(s => s);
+            }
+            return [];
         }
 
         // Genera el reporte a partir de los proyectos seleccionados y el tipo de
@@ -2377,208 +2419,214 @@ let currentModalKey = null;
         // previsualización en el modal. Finalmente almacena los datos en
         // currentReportData para exportarlos.
         window.generateReport = async function() {
-            const selectedNames = [];
-            document.querySelectorAll('#report-projects-list input[type="checkbox"]:checked').forEach(cb => {
-                selectedNames.push(cb.value);
-            });
-            if (!selectedNames.length) {
-                showNotification('Selecciona al menos un proyecto para generar el reporte', true);
-                return;
-            }
-            const reportType = document.getElementById('report-type').value;
-            const selectedProjects = projects.filter(p => selectedNames.includes(p.name));
-            // Cálculo de métricas generales
-            const totalCapex = selectedProjects.reduce((sum, p) => sum + (parseFloat(p.capex) || 0), 0);
-            const avgCapex = selectedProjects.length ? (totalCapex / selectedProjects.length) : 0;
-            const sectores = new Set();
-            const paises = new Set();
-            const etapas = new Set();
-            const estados = new Set();
-            const empresas = new Set();
-            selectedProjects.forEach(p => {
-                if (p.sector) sectores.add(p.sector);
-                if (p.pais) paises.add(p.pais);
-                if (p.etapa) etapas.add(p.etapa);
-                if (p.estado) estados.add(p.estado);
-                (p.companias || []).forEach(c => { if (c) empresas.add(c); });
-            });
-            // Construcción del HTML de resumen
-            let summaryHtml = `<p><strong>Proyectos seleccionados:</strong> ${selectedProjects.length}</p>`;
-            summaryHtml += `<p><strong>CAPEX total:</strong> $${totalCapex.toLocaleString('es-ES')} MM</p>`;
-            summaryHtml += `<p><strong>CAPEX promedio:</strong> $${avgCapex.toLocaleString('es-ES')} MM</p>`;
-            summaryHtml += `<p><strong>Sectores:</strong> ${Array.from(sectores).join(', ') || '-'}</p>`;
-            summaryHtml += `<p><strong>Países:</strong> ${Array.from(paises).join(', ') || '-'}</p>`;
-            summaryHtml += `<p><strong>Etapas:</strong> ${Array.from(etapas).join(', ') || '-'}</p>`;
-            summaryHtml += `<p><strong>Estados:</strong> ${Array.from(estados).join(', ') || '-'}</p>`;
-            summaryHtml += `<p><strong>Empresas involucradas:</strong> ${Array.from(empresas).join(', ') || '-'}</p>`;
-            // Preparación de datos para los distintos gráficos
-            const sectorCapex = {};
-            const topList = [...selectedProjects].sort((a, b) => (parseFloat(b.capex) || 0) - (parseFloat(a.capex) || 0)).slice(0, 5);
-            const etapaColors = window.etapaColors || {};
-            const sectorEtapaCounts = {};
-            const companyCapex = {};
-            const countryCounts = {};
-            selectedProjects.forEach(p => {
-                const capex = parseFloat(p.capex) || 0;
-                // Sector
-                sectorCapex[p.sector] = (sectorCapex[p.sector] || 0) + capex;
-                // Etapa por sector
-                if (!sectorEtapaCounts[p.sector]) sectorEtapaCounts[p.sector] = {};
-                sectorEtapaCounts[p.sector][p.etapa] = (sectorEtapaCounts[p.sector][p.etapa] || 0) + 1;
-                // Compañías
-                (p.companias || []).forEach(c => {
-                    if (!c) return;
-                    companyCapex[c] = (companyCapex[c] || 0) + capex;
+            try {
+                const selectedNames = [];
+                document.querySelectorAll('#report-projects-list input[type="checkbox"]:checked').forEach(cb => {
+                    selectedNames.push(cb.value);
                 });
-                // Países
-                countryCounts[p.pais] = (countryCounts[p.pais] || 0) + 1;
-            });
-            // Datos gráficos comunes
-            const sectorLabels = Object.keys(sectorCapex);
-            const sectorValues = Object.values(sectorCapex);
-            const topLabels = topList.map(p => p.name);
-            const topValues = topList.map(p => parseFloat(p.capex) || 0);
-            const topColors = topList.map(p => etapaColors[p.etapa] || '#0055A6');
-            const etapaLabels = Array.from(new Set(selectedProjects.map(p => p.etapa)));
-            const stackedLabels = Object.keys(sectorEtapaCounts);
-            const stackedDatasets = etapaLabels.map(etapa => {
-                return {
-                    label: etapa,
-                    backgroundColor: etapaColors[etapa] || '#cccccc',
-                    data: stackedLabels.map(sector => (sectorEtapaCounts[sector][etapa] || 0))
-                };
-            });
-            const companyEntries = Object.entries(companyCapex).sort((a, b) => b[1] - a[1]).slice(0, 5);
-            const companyLabels = companyEntries.map(item => item[0]);
-            const companyValues = companyEntries.map(item => item[1]);
-            const countryLabels = Object.keys(countryCounts);
-            const countryValues = Object.values(countryCounts);
-            // Configuración y generación de gráficos según el tipo de reporte
-            const charts = {};
-            // Helper palette for pie/bar charts
-            const palette = ['#0055A6','#E60028','#003366','#9b59b6','#2ecc71','#1abc9c','#34495e','#e67e22','#16a085','#27ae60'];
-            if (reportType === 'comparativo' || reportType === 'capexSector') {
-                const config = {
-                    type: 'pie',
-                    data: {
-                        labels: sectorLabels,
-                        datasets: [{ data: sectorValues, backgroundColor: sectorLabels.map((_, i) => palette[i % palette.length]), borderWidth: 1 }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-                };
-                charts.sector = await generateChartImage(config);
-            }
-            if (reportType === 'comparativo') {
-                // Top projects bar
-                const configTop = {
-                    type: 'bar',
-                    data: {
-                        labels: topLabels,
-                        datasets: [{ label: 'CAPEX (US$ MM)', data: topValues, backgroundColor: topColors, borderColor: '#333', borderWidth: 1 }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, title: { display: true, text: 'Millones de USD' } } }, plugins: { legend: { display: false } } }
-                };
-                charts.top = await generateChartImage(configTop);
-                // Stacked bar for etapas por sector
-                const configStacked = {
-                    type: 'bar',
-                    data: { labels: stackedLabels, datasets: stackedDatasets },
-                    options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Número de Proyectos' } } }, plugins: { legend: { position: 'top' } } }
-                };
-                charts.stacked = await generateChartImage(configStacked);
-                // Company bar (horizontal)
-                const configCompany = {
-                    type: 'bar',
-                    data: { labels: companyLabels, datasets: [{ label: 'Inversión (US$ MM)', data: companyValues, backgroundColor: palette.slice(0, companyLabels.length), borderColor: palette.slice(0, companyLabels.length), borderWidth: 1 }] },
-                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, title: { display: true, text: 'Millones de USD' } }, y: { ticks: { autoSkip: false, font: { size: 10 } } } }, plugins: { legend: { display: false } } }
-                };
-                charts.company = await generateChartImage(configCompany);
-                // Country bar (horizontal)
-                const configCountry = {
-                    type: 'bar',
-                    data: { labels: countryLabels, datasets: [{ label: 'Proyectos', data: countryValues, backgroundColor: palette.slice(0, countryLabels.length), borderColor: palette.slice(0, countryLabels.length), borderWidth: 1 }] },
-                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, title: { display: true, text: 'Número de Proyectos' } }, y: { ticks: { autoSkip: false, font: { size: 10 } } } }, plugins: { legend: { display: false } } }
-                };
-                charts.country = await generateChartImage(configCountry);
-            } else if (reportType === 'proyectosPais') {
-                const configCountry = {
-                    type: 'bar',
-                    data: { labels: countryLabels, datasets: [{ label: 'Proyectos', data: countryValues, backgroundColor: palette.slice(0, countryLabels.length), borderColor: palette.slice(0, countryLabels.length), borderWidth: 1 }] },
-                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, title: { display: true, text: 'Número de Proyectos' } }, y: { ticks: { autoSkip: false, font: { size: 10 } } } }, plugins: { legend: { display: false } } }
-                };
-                charts.country = await generateChartImage(configCountry);
-            } else if (reportType === 'inversionEmpresa') {
-                const configCompany = {
-                    type: 'bar',
-                    data: { labels: companyLabels, datasets: [{ label: 'Inversión (US$ MM)', data: companyValues, backgroundColor: palette.slice(0, companyLabels.length), borderColor: palette.slice(0, companyLabels.length), borderWidth: 1 }] },
-                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, title: { display: true, text: 'Millones de USD' } }, y: { ticks: { autoSkip: false, font: { size: 10 } } } }, plugins: { legend: { display: false } } }
-                };
-                charts.company = await generateChartImage(configCompany);
-            }
-            // Construcción del HTML de detalles por proyecto
-            let detailsHtml = '';
-            selectedProjects.forEach(p => {
-                const fields = [
-                    { label: 'Sector', value: p.sector },
-                    { label: 'Área', value: p.area },
-                    { label: 'País', value: p.pais },
-                    { label: 'Etapa', value: p.etapa },
-                    { label: 'Estado', value: p.estado },
-                    { label: 'CAPEX (US$ MM)', value: p.capex },
-                    { label: 'Productos', value: (p.productos || []).join(', ') },
-                    { label: 'Empresas', value: (p.companias || []).join(', ') }
-                ];
-                detailsHtml += `<h4 style="margin-top:15px; color:#0055A6;">${p.name}</h4>`;
-                detailsHtml += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">';
-                fields.forEach(f => {
-                    detailsHtml += `<tr><td style="padding:4px 8px; font-weight:bold; border:1px solid #e0e7ff; background:#f8fafd;">${f.label}</td><td style="padding:4px 8px; border:1px solid #e0e7ff;">${f.value || '-'}</td></tr>`;
+                if (!selectedNames.length) {
+                    showNotification('Selecciona al menos un proyecto para generar el reporte', true);
+                    return;
+                }
+                const reportType = document.getElementById('report-type').value;
+                const selectedProjects = projects.filter(p => selectedNames.includes(p.name));
+                // Cálculo de métricas generales
+                const totalCapex = selectedProjects.reduce((sum, p) => sum + (parseFloat(p.capex) || 0), 0);
+                const avgCapex = selectedProjects.length ? (totalCapex / selectedProjects.length) : 0;
+                const sectores = new Set();
+                const paises = new Set();
+                const etapas = new Set();
+                const estados = new Set();
+                const empresas = new Set();
+                selectedProjects.forEach(p => {
+                    if (p.sector) sectores.add(p.sector);
+                    if (p.pais) paises.add(p.pais);
+                    if (p.etapa) etapas.add(p.etapa);
+                    if (p.estado) estados.add(p.estado);
+                    // Convertir compañías a array si vienen como cadena
+                    toArray(p.companias).forEach(c => { if (c) empresas.add(c); });
                 });
-                detailsHtml += '</table>';
-            });
-            // Construir la vista previa combinando resumen, gráficos y detalles
-            let previewHtml = '';
-            previewHtml += `<div style="margin-bottom:10px;">${summaryHtml}</div>`;
-            // Insertar gráficos dependiendo del tipo
-            if (reportType === 'comparativo' || reportType === 'capexSector') {
-                if (charts.sector) {
-                    previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">CAPEX por Sector</h4>';
-                    previewHtml += `<img src="${charts.sector}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+                // Construcción del HTML de resumen
+                let summaryHtml = `<p><strong>Proyectos seleccionados:</strong> ${selectedProjects.length}</p>`;
+                summaryHtml += `<p><strong>CAPEX total:</strong> $${totalCapex.toLocaleString('es-ES')} MM</p>`;
+                summaryHtml += `<p><strong>CAPEX promedio:</strong> $${avgCapex.toLocaleString('es-ES')} MM</p>`;
+                summaryHtml += `<p><strong>Sectores:</strong> ${Array.from(sectores).join(', ') || '-'}</p>`;
+                summaryHtml += `<p><strong>Países:</strong> ${Array.from(paises).join(', ') || '-'}</p>`;
+                summaryHtml += `<p><strong>Etapas:</strong> ${Array.from(etapas).join(', ') || '-'}</p>`;
+                summaryHtml += `<p><strong>Estados:</strong> ${Array.from(estados).join(', ') || '-'}</p>`;
+                summaryHtml += `<p><strong>Empresas involucradas:</strong> ${Array.from(empresas).join(', ') || '-'}</p>`;
+                // Preparación de datos para los distintos gráficos
+                const sectorCapex = {};
+                const topList = [...selectedProjects].sort((a, b) => (parseFloat(b.capex) || 0) - (parseFloat(a.capex) || 0)).slice(0, 5);
+                const etapaColors = window.etapaColors || {};
+                const sectorEtapaCounts = {};
+                const companyCapex = {};
+                const countryCounts = {};
+                selectedProjects.forEach(p => {
+                    const capex = parseFloat(p.capex) || 0;
+                    // Sector
+                    sectorCapex[p.sector] = (sectorCapex[p.sector] || 0) + capex;
+                    // Etapa por sector
+                    if (!sectorEtapaCounts[p.sector]) sectorEtapaCounts[p.sector] = {};
+                    sectorEtapaCounts[p.sector][p.etapa] = (sectorEtapaCounts[p.sector][p.etapa] || 0) + 1;
+                    // Compañías
+                    toArray(p.companias).forEach(c => {
+                        if (!c) return;
+                        companyCapex[c] = (companyCapex[c] || 0) + capex;
+                    });
+                    // Países
+                    countryCounts[p.pais] = (countryCounts[p.pais] || 0) + 1;
+                });
+                // Datos gráficos comunes
+                const sectorLabels = Object.keys(sectorCapex);
+                const sectorValues = Object.values(sectorCapex);
+                const topLabels = topList.map(p => p.name);
+                const topValues = topList.map(p => parseFloat(p.capex) || 0);
+                const topColors = topList.map(p => etapaColors[p.etapa] || '#0055A6');
+                const etapaLabels = Array.from(new Set(selectedProjects.map(p => p.etapa)));
+                const stackedLabels = Object.keys(sectorEtapaCounts);
+                const stackedDatasets = etapaLabels.map(etapa => {
+                    return {
+                        label: etapa,
+                        backgroundColor: etapaColors[etapa] || '#cccccc',
+                        data: stackedLabels.map(sector => (sectorEtapaCounts[sector][etapa] || 0))
+                    };
+                });
+                const companyEntries = Object.entries(companyCapex).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                const companyLabels = companyEntries.map(item => item[0]);
+                const companyValues = companyEntries.map(item => item[1]);
+                const countryLabels = Object.keys(countryCounts);
+                const countryValues = Object.values(countryCounts);
+                // Configuración y generación de gráficos según el tipo de reporte
+                const charts = {};
+                // Helper palette for pie/bar charts
+                const palette = ['#0055A6','#E60028','#003366','#9b59b6','#2ecc71','#1abc9c','#34495e','#e67e22','#16a085','#27ae60'];
+                if (reportType === 'comparativo' || reportType === 'capexSector') {
+                    const config = {
+                        type: 'pie',
+                        data: {
+                            labels: sectorLabels,
+                            datasets: [{ data: sectorValues, backgroundColor: sectorLabels.map((_, i) => palette[i % palette.length]), borderWidth: 1 }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+                    };
+                    charts.sector = await generateChartImage(config);
                 }
+                if (reportType === 'comparativo') {
+                    // Top projects bar
+                    const configTop = {
+                        type: 'bar',
+                        data: {
+                            labels: topLabels,
+                            datasets: [{ label: 'CAPEX (US$ MM)', data: topValues, backgroundColor: topColors, borderColor: '#333', borderWidth: 1 }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, title: { display: true, text: 'Millones de USD' } } }, plugins: { legend: { display: false } } }
+                    };
+                    charts.top = await generateChartImage(configTop);
+                    // Stacked bar for etapas por sector
+                    const configStacked = {
+                        type: 'bar',
+                        data: { labels: stackedLabels, datasets: stackedDatasets },
+                        options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Número de Proyectos' } } }, plugins: { legend: { position: 'top' } } }
+                    };
+                    charts.stacked = await generateChartImage(configStacked);
+                    // Company bar (horizontal)
+                    const configCompany = {
+                        type: 'bar',
+                        data: { labels: companyLabels, datasets: [{ label: 'Inversión (US$ MM)', data: companyValues, backgroundColor: palette.slice(0, companyLabels.length), borderColor: palette.slice(0, companyLabels.length), borderWidth: 1 }] },
+                        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, title: { display: true, text: 'Millones de USD' } }, y: { ticks: { autoSkip: false, font: { size: 10 } } } }, plugins: { legend: { display: false } } }
+                    };
+                    charts.company = await generateChartImage(configCompany);
+                    // Country bar (horizontal)
+                    const configCountry = {
+                        type: 'bar',
+                        data: { labels: countryLabels, datasets: [{ label: 'Proyectos', data: countryValues, backgroundColor: palette.slice(0, countryLabels.length), borderColor: palette.slice(0, countryLabels.length), borderWidth: 1 }] },
+                        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, title: { display: true, text: 'Número de Proyectos' } }, y: { ticks: { autoSkip: false, font: { size: 10 } } } }, plugins: { legend: { display: false } } }
+                    };
+                    charts.country = await generateChartImage(configCountry);
+                } else if (reportType === 'proyectosPais') {
+                    const configCountry = {
+                        type: 'bar',
+                        data: { labels: countryLabels, datasets: [{ label: 'Proyectos', data: countryValues, backgroundColor: palette.slice(0, countryLabels.length), borderColor: palette.slice(0, countryLabels.length), borderWidth: 1 }] },
+                        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, title: { display: true, text: 'Número de Proyectos' } }, y: { ticks: { autoSkip: false, font: { size: 10 } } } }, plugins: { legend: { display: false } } }
+                    };
+                    charts.country = await generateChartImage(configCountry);
+                } else if (reportType === 'inversionEmpresa') {
+                    const configCompany = {
+                        type: 'bar',
+                        data: { labels: companyLabels, datasets: [{ label: 'Inversión (US$ MM)', data: companyValues, backgroundColor: palette.slice(0, companyLabels.length), borderColor: palette.slice(0, companyLabels.length), borderWidth: 1 }] },
+                        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, title: { display: true, text: 'Millones de USD' } }, y: { ticks: { autoSkip: false, font: { size: 10 } } } }, plugins: { legend: { display: false } } }
+                    };
+                    charts.company = await generateChartImage(configCompany);
+                }
+                // Construcción del HTML de detalles por proyecto
+                let detailsHtml = '';
+                selectedProjects.forEach(p => {
+                    const fields = [
+                        { label: 'Sector', value: p.sector },
+                        { label: 'Área', value: p.area },
+                        { label: 'País', value: p.pais },
+                        { label: 'Etapa', value: p.etapa },
+                        { label: 'Estado', value: p.estado },
+                        { label: 'CAPEX (US$ MM)', value: p.capex },
+                        { label: 'Productos', value: toArray(p.productos).join(', ') },
+                        { label: 'Empresas', value: toArray(p.companias).join(', ') }
+                    ];
+                    detailsHtml += `<h4 style="margin-top:15px; color:#0055A6;">${p.name}</h4>`;
+                    detailsHtml += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">';
+                    fields.forEach(f => {
+                        detailsHtml += `<tr><td style="padding:4px 8px; font-weight:bold; border:1px solid #e0e7ff; background:#f8fafd;">${f.label}</td><td style="padding:4px 8px; border:1px solid #e0e7ff;">${f.value || '-'}</td></tr>`;
+                    });
+                    detailsHtml += '</table>';
+                });
+                // Construir la vista previa combinando resumen, gráficos y detalles
+                let previewHtml = '';
+                previewHtml += `<div style="margin-bottom:10px;">${summaryHtml}</div>`;
+                // Insertar gráficos dependiendo del tipo
+                if (reportType === 'comparativo' || reportType === 'capexSector') {
+                    if (charts.sector) {
+                        previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">CAPEX por Sector</h4>';
+                        previewHtml += `<img src="${charts.sector}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+                    }
+                }
+                if (reportType === 'comparativo') {
+                    if (charts.top) {
+                        previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Top Proyectos por CAPEX</h4>';
+                        previewHtml += `<img src="${charts.top}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+                    }
+                    if (charts.stacked) {
+                        previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Distribución de Etapas por Sector</h4>';
+                        previewHtml += `<img src="${charts.stacked}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+                    }
+                    if (charts.company) {
+                        previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Inversión por Compañía</h4>';
+                        previewHtml += `<img src="${charts.company}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+                    }
+                    if (charts.country) {
+                        previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Proyectos por País</h4>';
+                        previewHtml += `<img src="${charts.country}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+                    }
+                } else if (reportType === 'proyectosPais') {
+                    if (charts.country) {
+                        previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Proyectos por País</h4>';
+                        previewHtml += `<img src="${charts.country}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+                    }
+                } else if (reportType === 'inversionEmpresa') {
+                    if (charts.company) {
+                        previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Inversión por Compañía</h4>';
+                        previewHtml += `<img src="${charts.company}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
+                    }
+                }
+                previewHtml += `<div style="margin-top:10px;">${detailsHtml}</div>`;
+                document.getElementById('report-preview').innerHTML = previewHtml;
+                // Guardar datos para exportación
+                currentReportData = { selectedProjects, reportType, charts, summaryHtml, detailsHtml, totalCapex, avgCapex };
+                // Mostrar botones de descarga
+                document.getElementById('report-download-buttons').style.display = 'block';
+            } catch (error) {
+                console.error('Error al generar el reporte', error);
+                showNotification('Hubo un problema al generar el reporte. Intenta nuevamente.', true);
             }
-            if (reportType === 'comparativo') {
-                if (charts.top) {
-                    previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Top Proyectos por CAPEX</h4>';
-                    previewHtml += `<img src="${charts.top}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
-                }
-                if (charts.stacked) {
-                    previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Distribución de Etapas por Sector</h4>';
-                    previewHtml += `<img src="${charts.stacked}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
-                }
-                if (charts.company) {
-                    previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Inversión por Compañía</h4>';
-                    previewHtml += `<img src="${charts.company}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
-                }
-                if (charts.country) {
-                    previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Proyectos por País</h4>';
-                    previewHtml += `<img src="${charts.country}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
-                }
-            } else if (reportType === 'proyectosPais') {
-                if (charts.country) {
-                    previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Proyectos por País</h4>';
-                    previewHtml += `<img src="${charts.country}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
-                }
-            } else if (reportType === 'inversionEmpresa') {
-                if (charts.company) {
-                    previewHtml += '<h4 style="margin-top:10px; color:#0055A6;">Inversión por Compañía</h4>';
-                    previewHtml += `<img src="${charts.company}" style="max-width:100%; height:auto; margin-bottom:10px;"/>`;
-                }
-            }
-            previewHtml += `<div style="margin-top:10px;">${detailsHtml}</div>`;
-            document.getElementById('report-preview').innerHTML = previewHtml;
-            // Guardar datos para exportación
-            currentReportData = { selectedProjects, reportType, charts, summaryHtml, detailsHtml, totalCapex, avgCapex };
-            // Mostrar botones de descarga
-            document.getElementById('report-download-buttons').style.display = 'block';
         };
 
         // Exporta el reporte generado al formato indicado (pdf, excel o word).

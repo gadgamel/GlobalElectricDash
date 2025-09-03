@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin — Reporte Minero EECOL</title>
+  <link rel="icon" href="assets/logo-eecol-division-propuestas.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#070d1a; --bg-grad: radial-gradient(1200px 600px at 10% -10%, #0b1b33 0%, transparent 60%), radial-gradient(1200px 800px at 110% 10%, #17113a 0%, transparent 55%);
+      --card:#0c1324; --card-2:#0e1830; --line:#162442; --line-2:#1a2d50;
+      --text:#e6ebf5; --muted:#b6c2d9; --hint:#90a3c7; --brand:#58b5ff; --accent:#7dd3fc; --accent-2:#60a5fa; --ok:#34d399; --warn:#fbbf24; --err:#f87171;
+      --shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);background-image:var(--bg-grad);color:var(--text)}
+    .container{max-width:1200px;margin:0 auto;padding:20px}
+    header{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:linear-gradient(0deg, rgba(7,13,26,.6), rgba(7,13,26,.6));backdrop-filter:blur(8px);z-index:10}
+    header img{height:34px;filter:drop-shadow(0 2px 6px rgba(96,165,250,.2))}
+    header h1{margin:0;font-size:18px;font-weight:800;letter-spacing:.2px}
+
+    .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:linear-gradient(180deg, rgba(20,35,66,.7), rgba(12,19,36,.7));border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:var(--shadow)}
+    .btn{display:inline-flex;align-items:center;gap:8px;background:#152649;border:1px solid var(--line-2);color:#eaf2ff;padding:9px 12px;border-radius:10px;cursor:pointer;font-weight:700;transition:.2s transform, .2s filter}
+    .btn:hover{filter:brightness(1.08)}
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{background:linear-gradient(180deg,#204a84,#1b3a69);border-color:#29508f}
+    .btn.ghost{background:transparent}
+    .btn svg{width:16px;height:16px;stroke:#cfe0ff}
+
+    input[type=file],select,input[type=text]{background:#0b1427;border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:10px}
+    .tag{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:#0a1426}
+    .tag.ok{background:#0b2a20;border-color:#124d3a;color:#bfead7}
+    .tag.idle{background:#2a0b0b;border-color:#5a1a1a;color:#f0b7b7}
+    .hint{color:var(--hint);font-size:12px}
+
+    .card{background:linear-gradient(180deg, rgba(15,26,48,.9), rgba(12,19,36,.9));border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+    .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+
+    .table-wrap{overflow:auto;max-height:65vh;border:1px solid var(--line);border-radius:12px}
+    table{width:100%;border-collapse:separate;border-spacing:0;background:#0b1426}
+    thead th{position:sticky;top:0;background:#0a1324;border-bottom:1px solid var(--line);color:#d5e6ff;text-align:left;padding:10px 12px;font-size:12px;text-transform:uppercase;letter-spacing:.8px}
+    tbody td{border-bottom:1px solid #12203b;padding:8px 12px;font-size:13px}
+    tbody tr:nth-child(odd){background:#0e1830}
+    td[contenteditable=true]{outline:none}
+    .sticky-actions{position:sticky;right:0;background:linear-gradient(90deg, transparent, #0b1426 30%);backdrop-filter:blur(4px)}
+
+    .toast{position:fixed;bottom:22px;right:22px;background:#0b213d;border:1px solid #164373;color:#e6f0ff;padding:10px 14px;border-radius:10px;opacity:0;transform:translateY(8px);transition:.25s;pointer-events:none;box-shadow:var(--shadow)}
+    .toast.show{opacity:1;transform:translateY(0)}
+
+    /* Modal para editar proyectos */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal.active {
+      display: flex;
+    }
+    .modal-content {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow);
+    }
+    .modal-content h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      color: var(--text);
+      font-size: 18px;
+    }
+    .modal-content .form-field {
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-content .form-field label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .modal-content .form-field input,
+    .modal-content .form-field textarea {
+      background: #0b1427;
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 8px;
+      resize: vertical;
+      font-size: 14px;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .modal-actions button {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .modal-actions .save {
+      background: linear-gradient(180deg, #204a84, #1b3a69);
+      color: #eaf2ff;
+    }
+    .modal-actions .cancel {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--line);
+    }
+
+    @keyframes fadeInUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header>
+    <img src="assets/logo-eecol-division-propuestas.svg" alt="EECOL" />
+    <h1>Administración de proyectos — Reporte Minero EECOL</h1>
+  </header>
+
+  <div class="container">
+    <section class="card" style="animation:fadeInUp .3s ease both .02s">
+      <div class="toolbar">
+        <!-- Aceptamos archivos Excel y JSON. De esta manera se pueden importar datos desde
+             hojas de cálculo o desde un archivo JSON previamente exportado por el sistema.
+             El atributo accept se amplía a .json. -->
+        <input id="fileInput" type="file" accept=".xlsx,.xls,.json" />
+        <button class="btn primary" id="btnLoadRoot"> 
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4 4m0 0l4-4m-4 4V4"/></svg>
+          Cargar proyectos.xlsx
+        </button>
+        <button class="btn" id="btnSave">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v8m8-4H4"/></svg>
+          Guardar en navegador
+        </button>
+        <button class="btn" id="btnExport">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4 4m0 0l4-4m-4 4V4"/></svg>
+          Exportar Excel
+        </button>
+        <!-- Botón para exportar los datos a un fichero JSON. Permite descargar la base de datos
+             para guardarla o transportarla a otro equipo. -->
+        <button class="btn" id="btnExportJson">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4 4m0 0l4-4m-4 4V4"/></svg>
+          Exportar JSON
+        </button>
+        <button class="btn ghost" id="btnClear">Limpiar datos</button>
+        <!-- Abrimos el Dashboard en una nueva pestaña para facilitar la navegación desde la vista de administración. -->
+        <a class="btn" href="dash.html" target="_blank">Ir al Dashboard</a>
+        <span class="tag idle" id="statusTag">Sin datos</span>
+        <span class="hint" id="metaInfo"></span>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <label class="hint">Buscar: <input type="text" id="searchBox" placeholder="filtrar en tabla" /></label>
+        <label class="hint">Columna: <select id="colFilter"></select></label>
+        <label class="hint">Valor: <input type="text" id="valFilter" placeholder="coincidencia exacta" /></label>
+        <button class="btn ghost" id="btnApplyFilter">Aplicar</button>
+        <button class="btn ghost" id="btnResetFilter">Quitar filtro</button>
+        <button class="btn ghost" id="btnAddRow">Agregar fila</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="dataTable">
+          <thead><tr id="theadRow"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- Modal para editar proyectos -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <h3>Editar proyecto</h3>
+      <form id="editForm"></form>
+      <div class="modal-actions">
+        <button type="button" class="save" id="btnEditSave">Guardar</button>
+        <button type="button" class="cancel" id="btnEditCancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// Encapsulamos toda la lógica del administrador en una IIFE para no contaminar el ámbito global
+(function(){
+  const LS_KEY = 'proyectosData';
+  // Definimos un conjunto de columnas por defecto.  Se utilizarán si el usuario quiere añadir
+  // una fila nueva sin haber cargado previamente un Excel.  Esto permite gestionar proyectos
+  // desde cero y editar cada uno de sus atributos individualmente.
+  const DEFAULT_COLUMNS = [
+    'Nombre del proyecto',
+    'Sector',
+    'Área',
+    'País',
+    'Etapa',
+    'Compañías relacionadas',
+    'Capex (US$ mn)',
+    'Tipo de proyecto',
+    'Productos y Servicios',
+    'Estado',
+    'Latitud',
+    'Longitud',
+    'Descripcion'
+  ];
+  let state = { columns: [], rows: [], filtered: null, dirty: false, filename: null };
+  const $ = (id)=>document.getElementById(id);
+  const fileInput = $('fileInput');
+  const btnLoadRoot = $('btnLoadRoot');
+  const btnSave = $('btnSave');
+  const btnExport = $('btnExport');
+  const btnClear = $('btnClear');
+  const btnAddRow = $('btnAddRow');
+  // Referencias al modal de edición y sus controles
+  const editModal = document.getElementById('editModal');
+  const editForm = document.getElementById('editForm');
+  const btnEditSave = document.getElementById('btnEditSave');
+  const btnEditCancel = document.getElementById('btnEditCancel');
+  let currentEditRow = null;
+  const statusTag = $('statusTag');
+  const metaInfo = $('metaInfo');
+  const searchBox = $('searchBox');
+  const colFilter = $('colFilter');
+  const valFilter = $('valFilter');
+  const btnApplyFilter = $('btnApplyFilter');
+  const btnResetFilter = $('btnResetFilter');
+  const toast = $('toast');
+
+  fileInput.addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const ext = f.name.split('.').pop().toLowerCase();
+    try {
+      if (ext === 'json') {
+        // Si es JSON, leemos como texto y parseamos.
+        const text = await f.text();
+        loadFromJson(text, f.name);
+      } else {
+        // Por defecto tratamos como Excel (xlsx/xls). Se lee en binario y se parsea con XLSX.
+        const buf = await f.arrayBuffer();
+        loadFromArrayBuffer(buf, f.name);
+      }
+    } catch (err) {
+      console.error('Error al leer el archivo', err);
+      showToast('Error al leer el archivo: ' + err.message);
+    }
+  });
+  // Al pulsar "Cargar proyectos.xlsx" intentamos abrir el archivo local.  En contextos file:// no
+  // es posible usar fetch, por lo que desencadenamos el selector de archivos para que el usuario
+  // seleccione el Excel manualmente.  Si se ejecuta en un servidor http, el fetch podría
+  // funcionar, pero al fallar hacemos fallback a FileInput.
+  btnLoadRoot.addEventListener('click', async () => {
+    // Intenta leer el fichero via fetch sólo si no estamos en esquema file://
+    const isFileScheme = location.protocol === 'file:';
+    if (!isFileScheme) {
+      try {
+        // Primero intentamos cargar un Excel
+        const resXls = await fetch('proyectos.xlsx');
+        if (resXls.ok) {
+          const buf = await resXls.arrayBuffer();
+          loadFromArrayBuffer(buf, 'proyectos.xlsx');
+          return;
+        }
+        // Si no encontramos el Excel, intentamos cargar un JSON
+        const resJson = await fetch('proyectos.json');
+        if (resJson.ok) {
+          const text = await resJson.text();
+          loadFromJson(text, 'proyectos.json');
+          return;
+        }
+        throw new Error('No se encontró proyectos.xlsx ni proyectos.json');
+      } catch (err) {
+        // si falló, continuamos con el fallback
+        console.warn('Fetch falló, pidiendo al usuario seleccionar el archivo:', err);
+      }
+    }
+    // Fallback: abrir el selector de archivos
+    fileInput.click();
+  });
+  btnSave.addEventListener('click', ()=>{ const payload = { columns: state.columns, rows: state.rows, meta: { updatedAt: new Date().toISOString() } }; localStorage.setItem(LS_KEY, JSON.stringify(payload)); state.dirty=false; updateStatus(); showToast('Datos guardados en el navegador'); });
+  btnExport.addEventListener('click', () => {
+    if (!state.rows.length) {
+      alert('No hay datos para exportar');
+      return;
+    }
+    const ws = XLSX.utils.json_to_sheet(state.rows, { header: state.columns });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Proyectos');
+    // Usamos el nombre original del archivo si existe, de lo contrario uno por defecto.
+    const baseName = state.filename ? state.filename.replace(/\.[^.]+$/, '') : 'proyectos';
+    const fname = baseName + '_' + timeStamp() + '.xlsx';
+    XLSX.writeFile(wb, fname);
+    showToast('Excel exportado: ' + fname);
+  });
+
+  // Exportar los datos a un archivo JSON.  Se genera un objeto con las columnas y las filas,
+  // junto con la fecha de exportación para referencia.  Después se crea un enlace de descarga
+  // y se simula un clic para descargar el fichero.
+  const btnExportJson = $('btnExportJson');
+  btnExportJson.addEventListener('click', () => {
+    if (!state.rows.length) {
+      alert('No hay datos para exportar');
+      return;
+    }
+    const payload = {
+      columns: state.columns,
+      rows: state.rows,
+      meta: { exportedAt: new Date().toISOString() }
+    };
+    const jsonStr = JSON.stringify(payload, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    // Usamos el nombre base del archivo si se conoce, de lo contrario uno genérico
+    const baseName = state.filename ? state.filename.replace(/\.[^.]+$/, '') : 'proyectos';
+    const fileName = baseName + '_' + timeStamp() + '.json';
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('JSON exportado: ' + fileName);
+  });
+
+  /**
+   * Carga datos desde un texto JSON.  El archivo puede tener uno de los siguientes formatos:
+   * - Un objeto con propiedades { columns, rows }:  se utilizan tal cual.
+   * - Un objeto con propiedad { rows }: se infieren columnas a partir de la primera fila.
+   * - Un array de objetos: se infieren las columnas de todas las filas.
+   * Cualquier otra estructura genera un error.  Una vez parseado, se normalizan las filas
+   * asegurando que todas tengan las mismas columnas.
+   */
+  function loadFromJson(text, name) {
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (err) {
+      showToast('JSON inválido: ' + err.message);
+      return;
+    }
+    let columns = [];
+    let rows = [];
+    if (Array.isArray(parsed)) {
+      // Array simple de objetos
+      rows = parsed;
+      columns = inferColumns(rows);
+    } else if (parsed && typeof parsed === 'object') {
+      if (Array.isArray(parsed.rows)) {
+        rows = parsed.rows;
+        columns = parsed.columns && Array.isArray(parsed.columns) ? parsed.columns : inferColumns(rows);
+      } else {
+        // Si es un objeto con propiedades arbitrarias, usamos sus valores como filas si son arrays de objetos.
+        const values = Object.values(parsed);
+        // Buscamos la primera propiedad que sea un array de objetos.
+        const candidate = values.find(v => Array.isArray(v) && v.length && typeof v[0] === 'object');
+        if (candidate) {
+          rows = candidate;
+          columns = inferColumns(rows);
+        } else {
+          showToast('Formato JSON no soportado');
+          return;
+        }
+      }
+    } else {
+      showToast('Formato JSON no soportado');
+      return;
+    }
+    state.columns = columns;
+    state.rows = normalizeRows(rows, columns);
+    state.dirty = true;
+    state.filename = name;
+    render();
+    updateStatus(name);
+    showToast(`Datos cargados (${rows.length} filas) desde ${name}`);
+  }
+  btnClear.addEventListener('click', ()=>{ if(confirm('¿Limpiar datos locales?')){ localStorage.removeItem(LS_KEY); state = { columns: [], rows: [], filtered: null, dirty: false }; render(); updateStatus(); showToast('Datos locales eliminados'); }});
+  btnAddRow.addEventListener('click', () => {
+    // Si no tenemos columnas definidas, utilizamos las columnas por defecto y renderizamos la tabla
+    if (!state.columns.length) {
+      state.columns = [...DEFAULT_COLUMNS];
+      state.rows = [];
+      state.dirty = true;
+      render();
+      updateStatus();
+    }
+    const row = Object.fromEntries(state.columns.map(c => [c, '']));
+    state.rows.push(row);
+    state.dirty = true;
+    renderBody();
+    updateStatus();
+  });
+  btnApplyFilter.addEventListener('click', ()=>{ const c=colFilter.value; const v=valFilter.value; if(!c||!v){ alert('Selecciona columna y valor'); return; } state.filtered={col:c,val:v}; renderBody(); });
+  btnResetFilter.addEventListener('click', ()=>{ state.filtered=null; valFilter.value=''; renderBody(); });
+  searchBox.addEventListener('input', ()=>{ renderBody(); });
+
+  function loadFromArrayBuffer(buf, name) {
+    const wb = XLSX.read(buf, { type:'array' });
+    const sheetName = wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:true });
+    const columns = inferColumns(rows);
+    state.columns = columns;
+    state.rows = normalizeRows(rows, columns);
+    state.dirty = true;
+    state.filename = name;
+    render();
+    updateStatus(name);
+  }
+  function inferColumns(rows){ const set=new Set(); rows.forEach(r=>Object.keys(r).forEach(k=>set.add(k))); return Array.from(set); }
+  function normalizeRows(rows, cols){ return rows.map(r=>{ const o={}; cols.forEach(c=>o[c]=r[c]??''); return o; }); }
+
+  function render(){ const thead=$('theadRow'); thead.innerHTML=''; state.columns.forEach(c=>{ const th=document.createElement('th'); th.textContent=c; thead.appendChild(th);}); const thAct=document.createElement('th'); thAct.textContent='Acciones'; thead.appendChild(thAct); colFilter.innerHTML='<option value="">—</option>'+state.columns.map(c=>`<option>${escapeHtml(c)}</option>`).join(''); renderBody(); }
+  function renderBody(){ const tbody=$('tbody'); tbody.innerHTML=''; const q = searchBox.value?.trim().toLowerCase(); let data=[...state.rows]; if(state.filtered){ data = data.filter(r => String(r[state.filtered.col]) === state.filtered.val); } if(q){ data = data.filter(r => state.columns.some(c => String(r[c]).toLowerCase().includes(q))); }
+    data.forEach((row)=>{ const tr=document.createElement('tr'); state.columns.forEach(col=>{ const td=document.createElement('td'); td.contentEditable=true; td.textContent=row[col]; td.addEventListener('blur', ()=>{ row[col]=td.textContent; state.dirty=true; updateStatus(); }); tr.appendChild(td); }); const tdActions=document.createElement('td'); tdActions.className='sticky-actions';
+      // Botón Editar
+      const editBtn = document.createElement('button');
+      editBtn.className = 'btn ghost';
+      editBtn.textContent = 'Editar';
+      editBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        openEditModal(row);
+      });
+      tdActions.appendChild(editBtn);
+      // Botón Eliminar
+      const del=document.createElement('button'); del.className='btn ghost'; del.textContent='Eliminar'; del.addEventListener('click',()=>{ const idx=state.rows.indexOf(row); if(idx>-1){ state.rows.splice(idx,1); renderBody(); state.dirty=true; updateStatus(); }}); tdActions.appendChild(del);
+      tr.appendChild(tdActions);
+      tbody.appendChild(tr);
+    }); }
+
+  function updateStatus(src){ const count=state.rows.length; const cols=state.columns.length; statusTag.textContent = count? `${count} filas • ${cols} columnas` : 'Sin datos'; statusTag.className = 'tag ' + (count? 'ok':'idle'); const saved = safeParse(localStorage.getItem(LS_KEY)); const savedAt = saved?.meta?.updatedAt ? new Date(saved.meta.updatedAt) : null; metaInfo.textContent = `${state.dirty? 'Cambios sin guardar • ': ''}${ savedAt ? 'Último guardado: '+ savedAt.toLocaleString() : '' }${ src ? ' • Fuente: '+src : ''}`; }
+
+  // Modal de edición de proyectos
+  function openEditModal(row) {
+    currentEditRow = row;
+    // Limpiamos el formulario y lo rellenamos con las columnas actuales
+    editForm.innerHTML = '';
+    state.columns.forEach(col => {
+      const field = document.createElement('div');
+      field.className = 'form-field';
+      const label = document.createElement('label');
+      label.textContent = col;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.name = col;
+      input.value = row[col] !== undefined ? row[col] : '';
+      field.appendChild(label);
+      field.appendChild(input);
+      editForm.appendChild(field);
+    });
+    editModal.classList.add('active');
+  }
+  function closeEditModal() {
+    editModal.classList.remove('active');
+    currentEditRow = null;
+  }
+  btnEditSave.addEventListener('click', () => {
+    if (!currentEditRow) return;
+    const inputs = editForm.querySelectorAll('input, textarea');
+    inputs.forEach(inp => {
+      const key = inp.name;
+      currentEditRow[key] = inp.value;
+    });
+    state.dirty = true;
+    renderBody();
+    updateStatus();
+    closeEditModal();
+  });
+  btnEditCancel.addEventListener('click', () => {
+    closeEditModal();
+  });
+  function timeStamp(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}`; }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+  function safeParse(x){ try{return JSON.parse(x||'null')}catch{return null} }
+  function showToast(msg){ toast.textContent=msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2000); }
+
+  try{ const saved = safeParse(localStorage.getItem(LS_KEY)); if(saved && saved.rows?.length){ state.columns=saved.columns||inferColumns(saved.rows); state.rows=normalizeRows(saved.rows, state.columns); state.dirty=false; render(); updateStatus(); } }catch{}
+})();
+</script>
+</body>
+</html>

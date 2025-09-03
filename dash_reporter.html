@@ -139,9 +139,28 @@
         <h1>Reporte Ejecutivo de Proyectos</h1>
     </header>
     <main>
+        <!-- Barra superior con menú de navegación, contadores, búsqueda y botones de exportación -->
+        <div id="top-bar" class="top-bar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
+            <div style="display:flex; align-items:center; gap:15px;">
+                <a href="dash.html" id="dash-link" style="color:#0055A6; font-weight:600; text-decoration:underline;">Volver al Dashboard</a>
+                <div id="kpi-container" style="display:flex; gap:15px; font-size:0.85rem;">
+                    <span id="kpi-total">0 proyectos</span>
+                    <span id="kpi-selected">0 seleccionados</span>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <input type="text" id="search-input" placeholder="Buscar por nombre..." style="padding:6px 8px; border:1px solid #ccc; border-radius:6px; font-size:0.85rem;">
+                <!-- Botones de exportación en la barra superior. Se muestran al generar un reporte -->
+                <!-- Botones de exportación siempre visibles pero deshabilitados hasta que se genere un reporte -->
+                <button id="pdf-btn-top" style="display:inline-block; padding:6px 10px; background:#0055A6; color:white; border:none; border-radius:6px; font-size:0.85rem; cursor:pointer;" disabled>PDF</button>
+                <button id="excel-btn-top" style="display:inline-block; padding:6px 10px; background:#0055A6; color:white; border:none; border-radius:6px; font-size:0.85rem; cursor:pointer;" disabled>Excel</button>
+                <button id="word-btn-top" style="display:inline-block; padding:6px 10px; background:#0055A6; color:white; border:none; border-radius:6px; font-size:0.85rem; cursor:pointer;" disabled>Word</button>
+            </div>
+        </div>
         <section class="form-section">
             <label for="data-source">Datos</label>
             <input type="file" id="data-source" accept=".xlsx,.xls,.json">
+            <button type="button" id="load-data-btn" style="display:none; padding:6px 10px; background:#E60028; color:white; border:none; border-radius:6px; font-size:0.85rem; cursor:pointer; margin-top:4px;">Aceptar</button>
             <small>Puedes cargar un archivo Excel (.xlsx) o JSON exportado del administrador. También se intentará cargar automáticamente <em>proyectos.xlsx</em> de la raíz del servidor o desde LocalStorage.</small>
         </section>
         <section class="form-section">
@@ -209,12 +228,20 @@
         </div>
     </main>
     <script>
+    // Paleta de colores predeterminada para gráficos sencillos
+    const palette = ['#0055A6','#E60028','#003366','#9b59b6','#2ecc71','#1abc9c','#34495e','#e67e22','#16a085','#27ae60'];
     // Variables globales
     let projects = [];
     let currentReportData = null;
 
     // Lista de proyectos filtrados. Si está vacía, se utiliza la lista completa.
     let filteredProjects = [];
+
+    // Archivo pendiente de carga seleccionado por el usuario.  Se cargará al pulsar "Aceptar".
+    let pendingFile = null;
+
+    // Término de búsqueda para filtrar proyectos por nombre.
+    let searchTerm = '';
 
     // Configuración de gráficos disponibles y selección actual.  Se rellenará dinámicamente
     // en renderChartOptions según el tipo de reporte y las preferencias del usuario.
@@ -236,6 +263,26 @@
         return [];
     }
 
+    /*
+     * Actualiza los contadores mostrados en la barra superior: total de proyectos disponibles
+     * (tras aplicar filtros y búsqueda) y número de proyectos actualmente seleccionados.
+     */
+    function updateKPIs() {
+        const totalEl = document.getElementById('kpi-total');
+        const selEl = document.getElementById('kpi-selected');
+        let base = (filteredProjects && filteredProjects.length) ? filteredProjects : projects;
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            base = base.filter(p => (p.name || '').toLowerCase().includes(term));
+        }
+        const total = base ? base.length : 0;
+        if (totalEl) totalEl.textContent = total + ' proyectos';
+        let selected = 0;
+        document.querySelectorAll('#projects-list input[type="checkbox"]').forEach(cb => {
+            if (cb.checked) selected++;
+        });
+        if (selEl) selEl.textContent = selected + ' seleccionados';
+    }
     // Carga proyectos desde LocalStorage o desde archivos remotos
     async function loadInitialData() {
         try {
@@ -258,9 +305,10 @@
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
                 projects = jsonData.map(row => normalizeRow(row));
-                renderProjectsList();
-                populateFilters();
-                return;
+        renderProjectsList();
+        populateFilters();
+        updateKPIs();
+        return;
             }
         } catch (e) { console.error('No se pudo cargar proyectos.xlsx', e); }
         // Intentar proyectos.json
@@ -360,6 +408,7 @@
             return true;
         });
         renderProjectsList();
+        updateKPIs();
     }
 
     /*
@@ -403,11 +452,16 @@
     function renderProjectsList() {
         const list = document.getElementById('projects-list');
         list.innerHTML = '';
-        // Elegimos la fuente de datos: si existen proyectos filtrados, usamos esos; de lo contrario,
-        // utilizamos la lista completa cargada.  Esto permite mantener la funcionalidad de filtros.
-        const source = (filteredProjects && filteredProjects.length) ? filteredProjects : projects;
+        // Seleccionamos la fuente de datos: filtrada o completa
+        let source = (filteredProjects && filteredProjects.length) ? filteredProjects : projects;
+        // Aplicar búsqueda por nombre si se ingresó un término
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            source = source.filter(p => (p.name || '').toLowerCase().includes(term));
+        }
         if (!source || !source.length) {
             list.innerHTML = '<em>No hay proyectos disponibles</em>';
+            updateKPIs();
             return;
         }
         // Ordenar por nombre para una presentación más ordenada
@@ -422,7 +476,11 @@
             label.appendChild(checkbox);
             label.appendChild(document.createTextNode(' ' + p.name));
             list.appendChild(label);
+            // Actualizar contadores cuando se selecciona o deselecciona
+            checkbox.addEventListener('change', updateKPIs);
         });
+        // Actualizar los KPI una vez que se renderiza la lista
+        updateKPIs();
     }
 
     // Función para generar la imagen de un gráfico con Chart.js
@@ -457,6 +515,103 @@
                 }
             }, 300);
         });
+    }
+
+    /*
+     * --- Gráficos sin dependencias externas ---
+     * Las bibliotecas CDN pueden estar bloqueadas en algunos entornos. Para garantizar
+     * que los gráficos se generen siempre, implementamos funciones para dibujar
+     * diagramas de barras sencillos directamente sobre un canvas.  Estos gráficos
+     * abarcan tanto barras horizontales como verticales y utilizan colores
+     * basados en la paleta definida o generados dinámicamente en formato HSL.
+     */
+    // Convierte un valor HSL a código hexadecimal. Se utiliza para generar colores
+    function hslToHex(h, s, l) {
+        h /= 360;
+        s /= 100;
+        l /= 100;
+        let r, g, b;
+        if (s === 0) {
+            r = g = b = l;
+        } else {
+            const hue2rgb = (p, q, t) => {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1 / 6) return p + (q - p) * 6 * t;
+                if (t < 1 / 2) return q;
+                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                return p;
+            };
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1 / 3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1 / 3);
+        }
+        const toHex = x => {
+            const hex = Math.round(x * 255).toString(16).padStart(2, '0');
+            return hex;
+        };
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+
+    // Crea un gráfico de barras sencillo (horizontal o vertical) y devuelve su imagen base64
+    function createBarChart(labels, values, title, horizontal = false) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 800;
+        canvas.height = 400;
+        const ctx = canvas.getContext('2d');
+        // Fondo blanco
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Título
+        ctx.fillStyle = '#0055A6';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(title, 20, 30);
+        // Área de gráfico
+        const margin = 60;
+        const chartWidth = canvas.width - margin * 2;
+        const chartHeight = canvas.height - margin * 2;
+        const maxVal = Math.max(...values, 1);
+        const count = labels.length;
+        for (let i = 0; i < count; i++) {
+            // Elegir color: usar la paleta si existe y, si se queda corta, generar colores en HSL
+            let color;
+            if (typeof palette !== 'undefined' && palette[i % palette.length]) {
+                color = palette[i % palette.length];
+            } else {
+                color = hslToHex((i * 360) / count, 60, 60);
+            }
+            if (horizontal) {
+                const barHeight = (chartHeight / count) * 0.6;
+                const y = margin + i * (chartHeight / count);
+                const barLength = (values[i] / maxVal) * chartWidth;
+                ctx.fillStyle = color;
+                ctx.fillRect(margin, y + (chartHeight / count - barHeight) / 2, barLength, barHeight);
+                ctx.fillStyle = '#333333';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(labels[i], margin - 8, y + chartHeight / count / 2 + 4);
+                ctx.textAlign = 'left';
+                ctx.fillText(values[i], margin + barLength + 5, y + chartHeight / count / 2 + 4);
+            } else {
+                const barWidth = (chartWidth / count) * 0.6;
+                const x = margin + i * (chartWidth / count) + ((chartWidth / count - barWidth) / 2);
+                const barHeight = (values[i] / maxVal) * chartHeight;
+                const y = margin + chartHeight - barHeight;
+                ctx.fillStyle = color;
+                ctx.fillRect(x, y, barWidth, barHeight);
+                ctx.fillStyle = '#333333';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                // Valor sobre la barra
+                ctx.fillText(values[i], x + barWidth / 2, y - 4);
+                // Etiqueta debajo
+                ctx.fillText(labels[i], x + barWidth / 2, margin + chartHeight + 15);
+            }
+        }
+        return canvas.toDataURL('image/png');
     }
 
     // Genera el reporte a partir de los proyectos seleccionados y tipo
@@ -496,7 +651,6 @@
         summaryHtml += `<p><strong>Estados:</strong> ${Array.from(estados).join(', ') || '-'}</p>`;
         summaryHtml += `<p><strong>Empresas involucradas:</strong> ${Array.from(empresas).join(', ') || '-'}</p>`;
         // Datos para gráficos
-        const palette = ['#0055A6','#E60028','#003366','#9b59b6','#2ecc71','#1abc9c','#34495e','#e67e22','#16a085','#27ae60'];
         const sectorCapex = {};
         const sectorEtapaCounts = {};
         const companyCapex = {};
@@ -518,7 +672,8 @@
         const topValues = topList.map(p=>p.capex||0);
         const etapaLabels = Array.from(new Set(selectedProjects.map(p=>p.etapa)));
         const stackedLabels = Object.keys(sectorEtapaCounts);
-        const stackedDatasets = etapaLabels.map(et => ({ label: et, backgroundColor: palette[etapaLabels.indexOf(et)%palette.length], data: stackedLabels.map(se => sectorEtapaCounts[se][et] || 0) }));
+        // La variable stackedDatasets ya no se utiliza porque los gráficos se generan manualmente.
+        const stackedDatasets = [];
         const companyEntries = Object.entries(companyCapex).sort((a,b)=> b[1]-a[1]).slice(0,5);
         const companyLabels = companyEntries.map(e=>e[0]);
         const companyValues = companyEntries.map(e=>e[1]);
@@ -526,47 +681,25 @@
         const countryValues = Object.values(countryCounts);
         // Generar gráficos
         const charts = {};
-        // Generamos solamente los gráficos seleccionados por el usuario.  Cada gráfico se
-        // construye con su propia configuración si está marcado en chartSelection.
+        // En ausencia de bibliotecas externas, utilizamos gráficos de barras simples.  Si
+        // un gráfico no está seleccionado, se omite.  Los gráficos horizontales se
+        // utilizan para inversiones por compañía y proyectos por país.
         if (chartSelection.sector) {
-            const configSector = {
-                type: 'pie',
-                data: { labels: sectorLabels, datasets: [{ data: sectorValues, backgroundColor: sectorLabels.map((_,i) => palette[i % palette.length]) }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-            };
-            charts.sector = await generateChartImage(configSector);
+            charts.sector = createBarChart(sectorLabels, sectorValues, 'CAPEX por Sector', false);
         }
         if (chartSelection.top) {
-            const configTop = {
-                type: 'bar',
-                data: { labels: topLabels, datasets: [{ label: 'CAPEX (US$ MM)', data: topValues, backgroundColor: topLabels.map((_,i) => palette[i % palette.length]) }] },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, title: { display: true, text: 'MM USD' } } }, plugins: { legend: { display: false } } }
-            };
-            charts.top = await generateChartImage(configTop);
+            charts.top = createBarChart(topLabels, topValues, 'Top Proyectos por CAPEX', false);
         }
         if (chartSelection.stacked) {
-            const configStacked = {
-                type: 'bar',
-                data: { labels: stackedLabels, datasets: stackedDatasets },
-                options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'N° Proyectos' } } }, plugins: { legend: { position: 'top' } } }
-            };
-            charts.stacked = await generateChartImage(configStacked);
+            // Para la distribución de etapas generamos un gráfico por etapas totales
+            const etapaCounts = etapaLabels.map(et => selectedProjects.filter(p => p.etapa === et).length);
+            charts.stacked = createBarChart(etapaLabels, etapaCounts, 'Distribución de Etapas', false);
         }
         if (chartSelection.company) {
-            const configCompany = {
-                type: 'bar',
-                data: { labels: companyLabels, datasets: [{ label: 'Inversión (US$ MM)', data: companyValues, backgroundColor: companyLabels.map((_,i) => palette[i % palette.length]) }] },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, title: { display: true, text: 'MM USD' } }, y: { ticks: { autoSkip: false } } }, plugins: { legend: { display: false } } }
-            };
-            charts.company = await generateChartImage(configCompany);
+            charts.company = createBarChart(companyLabels, companyValues, 'Inversión por Compañía', true);
         }
         if (chartSelection.country) {
-            const configCountry = {
-                type: 'bar',
-                data: { labels: countryLabels, datasets: [{ label: 'Proyectos', data: countryValues, backgroundColor: countryLabels.map((_,i) => palette[i % palette.length]) }] },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, title: { display: true, text: 'N° Proyectos' } }, y: { ticks: { autoSkip: false } } }, plugins: { legend: { display: false } } }
-            };
-            charts.country = await generateChartImage(configCountry);
+            charts.country = createBarChart(countryLabels, countryValues, 'Proyectos por País', true);
         }
         // Detalle por proyecto
         let detailsHtml = '';
@@ -617,6 +750,13 @@
         // Guardar datos para exportación
         currentReportData = { selectedProjects, reportType, charts, summaryHtml, detailsHtml, totalCapex, avgCapex, selectedCharts: Object.assign({}, chartSelection) };
         document.getElementById('download-buttons').style.display = 'block';
+        // Habilitar los botones de exportación en la barra superior
+        const pdfT = document.getElementById('pdf-btn-top');
+        const excelT = document.getElementById('excel-btn-top');
+        const wordT = document.getElementById('word-btn-top');
+        if (pdfT) pdfT.disabled = false;
+        if (excelT) excelT.disabled = false;
+        if (wordT) wordT.disabled = false;
     }
 
     // Exporta el reporte como PDF/Excel/Word
@@ -732,26 +872,47 @@
     }
 
     // Manejo de archivos cargados por el usuario
-    document.getElementById('data-source').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const ext = file.name.split('.').pop().toLowerCase();
-        if (ext === 'json') {
-            const text = await file.text();
-            const data = JSON.parse(text);
-            projects = data.map(row => normalizeRow(row));
+    // Cuando el usuario selecciona un archivo se guarda en la variable pendingFile y se muestra el botón "Aceptar".
+    document.getElementById('data-source').addEventListener('change', (e) => {
+        pendingFile = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+        const btn = document.getElementById('load-data-btn');
+        if (btn) {
+            btn.style.display = pendingFile ? 'inline-block' : 'none';
+        }
+    });
+
+    // Procesar archivo cuando el usuario haga clic en "Aceptar".  Esto permite al usuario cancelar la selección
+    // o cargar el archivo de forma explícita.  Tras la carga se limpian filtros y se actualizan KPI.
+    document.getElementById('load-data-btn').addEventListener('click', async () => {
+        if (!pendingFile) return;
+        const file = pendingFile;
+        pendingFile = null;
+        const btn = document.getElementById('load-data-btn');
+        if (btn) btn.style.display = 'none';
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        try {
+            if (ext === 'json') {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                projects = data.map(row => normalizeRow(row));
+            } else if (ext === 'xlsx' || ext === 'xls') {
+                const arrayBuffer = await file.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+                projects = jsonData.map(row => normalizeRow(row));
+            } else {
+                alert('Formato no soportado. Carga un .xlsx o .json');
+                return;
+            }
+            // Reiniciar filtros y listas
+            filteredProjects = [];
             renderProjectsList();
             populateFilters();
-        } else if (ext === 'xlsx' || ext === 'xls') {
-            const arrayBuffer = await file.arrayBuffer();
-            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-            projects = jsonData.map(row => normalizeRow(row));
-            renderProjectsList();
-            populateFilters();
-        } else {
-            alert('Formato no soportado. Carga un .xlsx o .json');
+            updateKPIs();
+        } catch (err) {
+            console.error('Error cargando archivo', err);
+            alert('Error al cargar archivo');
         }
     });
 
@@ -759,6 +920,29 @@
     document.getElementById('pdf-btn').addEventListener('click', () => exportReport('pdf'));
     document.getElementById('excel-btn').addEventListener('click', () => exportReport('excel'));
     document.getElementById('word-btn').addEventListener('click', () => exportReport('word'));
+
+    // Buscar por nombre: actualiza searchTerm y vuelve a renderizar la lista
+    const searchInputEl = document.getElementById('search-input');
+    if (searchInputEl) {
+        searchInputEl.addEventListener('input', (e) => {
+            searchTerm = (e.target.value || '').trim();
+            renderProjectsList();
+        });
+    }
+
+    // Vincular los botones superiores de exportación a la función exportReport
+    const pdfTopBtn = document.getElementById('pdf-btn-top');
+    const excelTopBtn = document.getElementById('excel-btn-top');
+    const wordTopBtn = document.getElementById('word-btn-top');
+    if (pdfTopBtn) {
+        pdfTopBtn.addEventListener('click', () => exportReport('pdf'));
+    }
+    if (excelTopBtn) {
+        excelTopBtn.addEventListener('click', () => exportReport('excel'));
+    }
+    if (wordTopBtn) {
+        wordTopBtn.addEventListener('click', () => exportReport('word'));
+    }
 
     // Aplicar filtros cuando el usuario lo solicite
     const applyBtn = document.getElementById('apply-filters');

@@ -975,6 +975,98 @@
                 right: 5px;
             }
         }
+        /*
+         * Estilos para el botón de acceso a paneles y el modal de autenticación.
+         * Estos elementos permiten abrir un cuadro de diálogo que solicita
+         * usuario y contraseña (root / propuestaadmin) y muestra enlaces a los
+         * distintos paneles (administrador y reporter) una vez autenticado.
+         */
+        .admin-button {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 4px;
+        }
+        .admin-button:hover {
+            color: #e0e7ff;
+        }
+        .admin-modal {
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .admin-modal-content {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 8px;
+            width: 320px;
+            max-width: 90%;
+            position: relative;
+        }
+        .admin-modal-content h2,
+        .admin-modal-content h3 {
+            margin-bottom: 10px;
+            color: #0055A6;
+        }
+        .admin-modal-content label {
+            display: block;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+        .admin-modal-content input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .admin-modal-content button {
+            width: 100%;
+            padding: 8px;
+            margin-top: 15px;
+            background: #0055A6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .admin-modal-content button:hover {
+            background: #003366;
+        }
+        .admin-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            font-size: 18px;
+            color: #888;
+        }
+        .admin-close:hover {
+            color: #E60028;
+        }
+        .admin-modal-content ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .admin-modal-content li {
+            margin-bottom: 10px;
+        }
+        .admin-modal-content a {
+            color: #0055A6;
+            text-decoration: underline;
+        }
+        .admin-modal-content a:hover {
+            color: #E60028;
+        }
     </style>
 </head>
 <body>
@@ -1011,6 +1103,12 @@
                     <div class="kpi-value" id="active-projects">0</div>
                     <div class="kpi-label">PROYECTOS ACTIVOS</div>
                 </div>
+            </div>
+            <!-- Botón para acceder al panel de administración y reportería -->
+            <div class="admin-panel">
+                <button class="admin-button" onclick="openAdminModal()" title="Paneles de administración y reportería">
+                    <i class="fa-solid fa-user-lock"></i>
+                </button>
             </div>
         </header>
         <!-- Panel izquierdo con filtros y gráficos -->
@@ -3173,6 +3271,72 @@ let currentModalKey = null;
             document.getElementById('apply-filters').addEventListener('click', applyFilters);
         }
         document.addEventListener('DOMContentLoaded', initApp);
-    </script>
+
+    /*
+     * Funciones para el panel de autenticación del administrador y reportería.
+     * openAdminModal muestra el modal y reinicia el formulario; closeAdminModal
+     * lo oculta; adminLogin valida las credenciales (usuario: root, contraseña:
+     * propuestaadmin) y muestra los enlaces a los paneles si son correctas.
+     */
+    function openAdminModal() {
+        const modal = document.getElementById('admin-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            const loginForm = document.getElementById('admin-login-form');
+            const links = document.getElementById('admin-links');
+            if (loginForm) loginForm.style.display = 'block';
+            if (links) links.style.display = 'none';
+            const userInput = document.getElementById('admin-user');
+            const passInput = document.getElementById('admin-pass');
+            if (userInput) userInput.value = '';
+            if (passInput) passInput.value = '';
+            const err = document.getElementById('admin-error');
+            if (err) err.style.display = 'none';
+        }
+    }
+
+    function closeAdminModal() {
+        const modal = document.getElementById('admin-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    function adminLogin() {
+        const user = (document.getElementById('admin-user').value || '').trim();
+        const pass = (document.getElementById('admin-pass').value || '').trim();
+        if (user === 'root' && pass === 'propuestaadmin') {
+            const loginForm = document.getElementById('admin-login-form');
+            const links = document.getElementById('admin-links');
+            if (loginForm) loginForm.style.display = 'none';
+            if (links) links.style.display = 'block';
+        } else {
+            const err = document.getElementById('admin-error');
+            if (err) err.style.display = 'block';
+        }
+    }
+</script>
+    <!-- Modal de autenticación para panel de administración y reportería -->
+    <div id="admin-modal" class="admin-modal">
+        <div class="admin-modal-content">
+            <span class="admin-close" onclick="closeAdminModal()">&times;</span>
+            <div id="admin-login-form">
+                <h2>Acceso a Paneles</h2>
+                <label for="admin-user">Usuario</label>
+                <input type="text" id="admin-user" autocomplete="username">
+                <label for="admin-pass">Contraseña</label>
+                <input type="password" id="admin-pass" autocomplete="current-password">
+                <button onclick="adminLogin()">Ingresar</button>
+                <p id="admin-error" style="color:#E60028; display:none; margin-top:10px;">Credenciales incorrectas</p>
+            </div>
+            <div id="admin-links" style="display:none;">
+                <h3>Paneles disponibles</h3>
+                <ul>
+                    <li><a href="admin.html" target="_blank">Administrador de Datos</a></li>
+                    <li><a href="dash_reporter.html" target="_blank">Reportería</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
